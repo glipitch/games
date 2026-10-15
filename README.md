@@ -7,6 +7,7 @@ Scan a printed puzzle with the camera or upload a photo. Adjust the four grid co
 - Responsive layout and touch-friendly corner adjustment.
 - Compact controls and a live camera outline that turns green when the complete grid is clear and steady. Capture stays disabled for missing, clipped, blurred, or unsteady grids. This checks framing and image quality; digit accuracy and puzzle solvability are checked after scanning.
 - Automatic grid detection, perspective correction, and local grid-line alignment for curved paper.
+- Finds angled grids among nearby puzzles. Centre the intended puzzle or tap it in the camera preview; capture and rotation keep that selection.
 - Browser-only OCR; photos are never uploaded or saved by the app.
 - Highlights duplicate clues and uncertain scan results.
 - Detects puzzles with no solution or more than one solution.

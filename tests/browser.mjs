@@ -48,24 +48,24 @@ await writeFile('test-results/printed-puzzle.png', Buffer.from(fixture, 'base64'
 // Supply actual changing video frames to the camera pipeline, not just a
 // mocked detector: blank -> valid -> cropped -> blurred -> valid -> capture.
 await page.evaluate(() => {
-  window.testCamera = Object.assign(document.createElement('canvas'), { width: 960, height: 960 });
-  const ctx = window.testCamera.getContext('2d'); ctx.fillStyle = 'white'; ctx.fillRect(0, 0, 960, 960);
   Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { configurable: true, value: async () => {
+    window.testCamera = Object.assign(document.createElement('canvas'), { width: 960, height: 960 });
+    const ctx = window.testCamera.getContext('2d'); ctx.fillStyle = 'white'; ctx.fillRect(0, 0, 960, 960);
     const stream = window.testCamera.captureStream(12); window.testCameraTrack = stream.getTracks()[0];
-    setTimeout(() => ctx.fillRect(0, 0, 960, 960), 50); return stream;
+    setTimeout(() => window.testCameraTrack.requestFrame(), 0); return stream;
   } });
 });
 await page.getByRole('button', { name: 'Scan puzzle', exact: true }).click();
 await page.waitForFunction(() => document.getElementById('scan-status').textContent.includes('9 × 9'));
 assert.equal(await page.locator('#capture').isDisabled(), true);
-async function cameraImage(mode = 'valid') {
+async function cameraImage(mode = 'valid', data = fixture) {
   await page.evaluate(async ({ data, mode }) => {
     const image = new Image(); image.src = 'data:image/png;base64,' + data; await image.decode();
     const ctx = window.testCamera.getContext('2d'); ctx.fillStyle = 'white'; ctx.fillRect(0, 0, 960, 960);
     ctx.filter = mode === 'blurred' ? 'blur(12px)' : 'none';
     if (mode === 'cropped') ctx.drawImage(image, -300, -300, 1560, 1560); else ctx.drawImage(image, 0, 0, 960, 960);
     ctx.filter = 'none';
-  }, { data: fixture, mode });
+  }, { data, mode });
 }
 await cameraImage(); await page.waitForFunction(() => !document.getElementById('capture').disabled);
 assert.match(await page.locator('#scan-status').innerText(), /Grid ready/);
@@ -82,6 +82,49 @@ assert.equal(await page.locator('#video').evaluate(el => el.srcObject), null);
 assert.equal(await page.evaluate(() => window.testCameraTrack.readyState), 'ended');
 await page.getByRole('button', { name: 'Close scanner' }).click();
 await page.setViewportSize({ width: 1440, height: 1000 });
+const scenes = await page.evaluate(async data => {
+  const { makeScenes } = await import('./tests/scenes.js'); return makeScenes(data);
+}, fixture);
+const angles = await page.evaluate(async scenes => {
+  const { assessFrame, detectCorners } = await import('./vision.js'), results = {};
+  for (const [name, scene] of Object.entries(scenes)) {
+    const image = new Image(); image.src = 'data:image/png;base64,' + scene.data; await image.decode();
+    const c = Object.assign(document.createElement('canvas'), { width: 640, height: 640 }); c.getContext('2d').drawImage(image, 0, 0);
+    const result = assessFrame(c), selected = detectCorners(c);
+    const error = points => Math.max(...scene.corners[0].map(p => Math.min(...(points ?? []).map(q => Math.hypot(p.x - q.x, p.y - q.y)))));
+    results[name] = { valid: result.valid, error: error(result.corners), photoError: error(selected) };
+    if (name === 'two') {
+      const other = assessFrame(c, { target: { x: 500 / 640, y: .5 } });
+      results.tapped = { valid: other.valid, error: Math.max(...scene.corners[1].map(p => Math.min(...other.corners.map(q => Math.hypot(p.x - q.x, p.y - q.y))))) };
+    }
+  }
+  return results;
+}, scenes);
+for (const [name, result] of Object.entries(angles)) {
+  assert.equal(result.valid, true, `${name}: complete angled grid should be accepted`);
+  assert.ok(result.error < 6, `${name}: selected physical corners, error ${result.error}`);
+  if ('photoError' in result) assert.ok(result.photoError < 6, `${name}: photo selection`);
+}
+await page.getByRole('button', { name: 'Scan puzzle', exact: true }).click();
+await page.waitForFunction(() => document.getElementById('scan-status').textContent.includes('9 × 9'));
+await cameraImage('valid', scenes.two.captureData); await page.waitForFunction(() => !document.getElementById('capture').disabled);
+const outlineCenter = () => page.locator('#camera-guide').evaluate(c => {
+  const { data } = c.getContext('2d').getImageData(0, 0, c.width, c.height); let sum = 0, count = 0;
+  for (let p = 0; p < data.length; p += 4) if (data[p] === 167 && data[p + 1] === 247 && data[p + 2] === 169) { sum += (p / 4) % c.width; count++; }
+  return sum / count / c.width;
+});
+assert.ok(await outlineCenter() < .5, 'tracks the grid at the centre before tapping');
+const finder = await page.locator('#viewfinder').boundingBox();
+await page.locator('#viewfinder').click({ position: { x: finder.width * 500 / 640, y: finder.height / 2 } });
+await page.waitForFunction(() => !document.getElementById('capture').disabled);
+assert.ok(await outlineCenter() > .65, 'tap selects the other tilted grid');
+await page.screenshot({ path: 'test-results/camera-two-grids.png', fullPage: true });
+await page.getByRole('button', { name: 'Take photo' }).click();
+for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Rotate', exact: false }).click();
+await page.getByRole('button', { name: 'Read grid' }).click();
+await page.waitForFunction(() => !document.getElementById('scan-dialog').open || !document.getElementById('read').disabled, null, { timeout: 180000 });
+const otherPuzzle = [...'530070000600195000098000060800060003400803001700020006060000280000419005000080079'].map(n => n === '0' ? 0 : Number(n) % 9 + 1).join('');
+assert.equal(await page.locator('.cell').evaluateAll(cells => cells.map(c => c.value || '0').join('')), otherPuzzle, 'capture and rotation keep the chosen grid');
 const quality = await page.evaluate(async () => {
   const { assessFrame } = await import('./vision.js');
   const c = Object.assign(document.createElement('canvas'), { width: 640, height: 640 }), ctx = c.getContext('2d');

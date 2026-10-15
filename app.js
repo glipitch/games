@@ -50,6 +50,7 @@ $('undo').addEventListener('click', () => { board = original; original = null; p
 const dialog = $('scan-dialog'), video = $('video'), crop = $('crop');
 let stream = null, source = null, corners = null, dragging = -1, controller = null, session = 0;
 let cameraTimer = null, cameraReady = false, stableFrames = 0, previousCorners = null;
+let cameraTarget = { x: .5, y: .5 };
 const stopCamera = () => { clearTimeout(cameraTimer); cameraTimer = null; cameraReady = false; stableFrames = 0; previousCorners = null; stream?.getTracks().forEach(track => track.stop()); stream = null; video.srcObject = null; };
 function closeScanner() { session++; stopCamera(); controller?.abort(); controller = null; source = null; corners = null; if (dialog.open) dialog.close(); }
 dialog.addEventListener('cancel', e => { e.preventDefault(); closeScanner(); });
@@ -59,13 +60,13 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && str
 function resetScanner(photoMode = false) {
   if (!dialog.open) dialog.showModal();
   $('scan-title').textContent = photoMode ? 'Align the grid' : 'Scan puzzle';
-  $('scan-help').textContent = photoMode ? 'Drag the four corners to the outside edges of the grid.' : 'Fit the whole puzzle in the frame.';
+  $('scan-help').textContent = photoMode ? 'Drag the four corners to the outside edges of the grid.' : 'Centre a puzzle, or tap to choose it.';
   video.hidden = photoMode; $('camera-guide').hidden = photoMode; crop.hidden = !photoMode;
   $('viewfinder').classList.toggle('camera-mode', !photoMode);
   $('crop-tools').hidden = !photoMode; $('capture').hidden = photoMode; $('capture').disabled = true;
   $('read').hidden = !photoMode; $('read').disabled = false; $('rotate').disabled = false; $('retake').disabled = false;
   $('camera-upload').hidden = photoMode; $('progress').hidden = true; $('scan-status').textContent = '';
-  if (!photoMode) drawGuide(null, false);
+  if (!photoMode) { cameraTarget = { x: .5, y: .5 }; drawGuide(null, false); }
 }
 $('camera').addEventListener('click', async () => {
   if (!navigator.mediaDevices?.getUserMedia) { $('native-camera').click(); return; }
@@ -108,7 +109,7 @@ function drawGuide(points, ready, size = 640) {
 function checkCamera(request) {
   if (request !== session || !stream || !dialog.open) return;
   if (video.readyState >= 2 && video.videoWidth) {
-    const frame = cameraFrame(640), result = assessFrame(frame);
+    const frame = cameraFrame(640), result = assessFrame(frame, { target: cameraTarget, previous: previousCorners });
     const steady = result.valid && previousCorners && result.corners.every((p, i) => Math.hypot(p.x - previousCorners[i].x, p.y - previousCorners[i].y) < frame.width * .025);
     stableFrames = result.valid ? (steady ? stableFrames + 1 : 1) : 0;
     previousCorners = result.valid ? result.corners : null; cameraReady = stableFrames >= 3;
@@ -118,13 +119,20 @@ function checkCamera(request) {
   }
   cameraTimer = setTimeout(() => checkCamera(request), 350);
 }
-function setPhoto(image) {
+$('viewfinder').addEventListener('click', e => {
+  if (video.hidden || !stream) return;
+  const r = $('viewfinder').getBoundingClientRect();
+  cameraTarget = { x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), y: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)) };
+  previousCorners = null; stableFrames = 0; cameraReady = false; $('capture').disabled = true;
+  clearTimeout(cameraTimer); checkCamera(session);
+});
+function setPhoto(image, selectedCorners = null) {
   stopCamera(); session++;
   const width = image.naturalWidth || image.videoWidth || image.width, height = image.naturalHeight || image.videoHeight || image.height;
   const ratio = Math.min(1, 1600 / Math.max(width, height));
   source = Object.assign(document.createElement('canvas'), { width: Math.round(width * ratio), height: Math.round(height * ratio) });
   source.getContext('2d').drawImage(image, 0, 0, source.width, source.height);
-  corners = detectCorners(source); resetScanner(true); drawCrop();
+  corners = selectedCorners ? selectedCorners.map(p => ({ x: p.x * ratio, y: p.y * ratio })) : detectCorners(source); resetScanner(true); drawCrop();
 }
 for (const id of ['photo', 'native-camera']) $(id).addEventListener('change', async e => {
   const file = e.target.files[0]; e.target.value = ''; if (!file) return;
@@ -136,10 +144,11 @@ for (const id of ['photo', 'native-camera']) $(id).addEventListener('change', as
 });
 $('capture').addEventListener('click', () => {
   if (!video.videoWidth || !cameraReady) return;
-  const result = assessFrame(cameraFrame(640));
+  const preview = cameraFrame(640), result = assessFrame(preview, { target: cameraTarget, previous: previousCorners });
   if (!result.valid) { cameraReady = false; stableFrames = 0; $('capture').disabled = true; $('scan-status').textContent = result.message; drawGuide(result.corners, false); return; }
   // Copy before stopping the video stream.
-  setPhoto(cameraFrame(1600));
+  const photo = cameraFrame(1600), scale = photo.width / preview.width;
+  setPhoto(photo, result.corners.map(p => ({ x: p.x * scale, y: p.y * scale })));
 });
 function drawCrop() {
   crop.width = source.width; crop.height = source.height;
@@ -160,8 +169,9 @@ crop.addEventListener('pointerdown', e => {
 crop.addEventListener('pointermove', e => { if (dragging < 0) return; const p = position(e); corners[dragging] = { x: Math.max(0, Math.min(crop.width - 1, p.x)), y: Math.max(0, Math.min(crop.height - 1, p.y)) }; drawCrop(); });
 for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) crop.addEventListener(event, () => { dragging = -1; });
 $('rotate').addEventListener('click', () => {
+  const turned = corners.map(p => ({ x: source.height - 1 - p.y, y: p.x }));
   const rotated = Object.assign(document.createElement('canvas'), { width: source.height, height: source.width }), ctx = rotated.getContext('2d');
-  ctx.translate(rotated.width, 0); ctx.rotate(Math.PI / 2); ctx.drawImage(source, 0, 0); source = rotated; corners = detectCorners(source); drawCrop();
+  ctx.translate(rotated.width, 0); ctx.rotate(Math.PI / 2); ctx.drawImage(source, 0, 0); source = rotated; corners = [turned[3], ...turned.slice(0, 3)]; drawCrop();
 });
 $('read').addEventListener('click', async () => {
   controller = new AbortController(); const current = controller;

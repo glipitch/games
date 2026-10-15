@@ -21,48 +21,131 @@ export function threshold(image, radius = 12, offset = 14) {
   return binary;
 }
 
-// Connected grid lines form one component. Its four extrema suggest the corners.
-export function detectCorners(source, fallback = true) {
+const cross = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+function quadrilateral(points) {
+  points.sort((a, b) => a.x - b.x || a.y - b.y);
+  const lower = [], upper = [];
+  for (const p of points) { while (lower.length > 1 && cross(lower.at(-2), lower.at(-1), p) <= 0) lower.pop(); lower.push(p); }
+  for (const p of [...points].reverse()) { while (upper.length > 1 && cross(upper.at(-2), upper.at(-1), p) <= 0) upper.pop(); upper.push(p); }
+  const hull = lower.slice(0, -1).concat(upper.slice(0, -1));
+  if (hull.length < 4) return null;
+  function simplify(chain, epsilon) {
+    if (chain.length <= 2) return chain;
+    let farthest = 0, distance = 0;
+    const a = chain[0], b = chain.at(-1), length = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    for (let i = 1; i < chain.length - 1; i++) { const d = Math.abs(cross(a, b, chain[i])) / length; if (d > distance) { distance = d; farthest = i; } }
+    if (distance <= epsilon) return [a, b];
+    return [...simplify(chain.slice(0, farthest + 1), epsilon).slice(0, -1), ...simplify(chain.slice(farthest), epsilon)];
+  }
+  let opposite = 1;
+  for (let i = 2; i < hull.length; i++) if (Math.hypot(hull[i].x - hull[0].x, hull[i].y - hull[0].y) > Math.hypot(hull[opposite].x - hull[0].x, hull[opposite].y - hull[0].y)) opposite = i;
+  let epsilon = .8, reduced;
+  do {
+    reduced = [...simplify(hull.slice(0, opposite + 1), epsilon).slice(0, -1), ...simplify([...hull.slice(opposite), hull[0]], epsilon).slice(0, -1)];
+    epsilon *= 1.5;
+  } while (reduced.length > 18);
+  // Maximise enclosed area instead of repeatedly dropping local corners:
+  // rounded/antialiased corner pixels must not collapse into an inner diamond.
+  let best = null, area = 0;
+  for (let a = 0; a < reduced.length - 3; a++) for (let b = a + 1; b < reduced.length - 2; b++) for (let c = b + 1; c < reduced.length - 1; c++) for (let d = c + 1; d < reduced.length; d++) {
+    const quad = [reduced[a], reduced[b], reduced[c], reduced[d]], size = polygonArea(quad);
+    if (size > area) { best = quad; area = size; }
+  }
+  if (!best) return null;
+  let start = 0;
+  for (let i = 1; i < 4; i++) if (best[i].x + best[i].y < best[start].x + best[start].y) start = i;
+  return [...best.slice(start), ...best.slice(0, start)];
+}
+const polygonArea = points => Math.abs(points.reduce((sum, p, i) => { const q = points[(i + 1) % points.length]; return sum + p.x * q.y - q.x * p.y; }, 0)) / 2;
+const center = points => points.reduce((p, q) => ({ x: p.x + q.x / 4, y: p.y + q.y / 4 }), { x: 0, y: 0 });
+function joinGaps(bits, w, h) {
+  // Group fragmented thin lines using a one-pixel halo. The final outline is
+  // fitted to the original ink, so this does not expand the detected corners.
+  let source = bits;
+  for (const horizontal of [true, false]) {
+    const next = new Uint8Array(bits.length), step = horizontal ? 1 : w;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const p = y * w + x, before = horizontal ? x > 0 : y > 0, after = horizontal ? x < w - 1 : y < h - 1;
+      const a = before ? source[p - step] : 0, b = source[p], c = after ? source[p + step] : 0;
+      next[p] = a | b | c;
+    }
+    source = next;
+  }
+  return source;
+}
+function gridCandidates(source, { target = { x: .5, y: .5 }, previous = null } = {}) {
   const scale = Math.min(1, 650 / Math.max(source.width, source.height));
   const small = canvas(Math.round(source.width * scale), Math.round(source.height * scale));
   const ctx = small.getContext('2d', { willReadFrequently: true }); ctx.drawImage(source, 0, 0, small.width, small.height);
-  const w = small.width, h = small.height, bits = threshold(ctx.getImageData(0, 0, w, h));
-  const queue = new Int32Array(w * h); let best = null, score = 0;
+  const w = small.width, h = small.height, ink = threshold(ctx.getImageData(0, 0, w, h)), bits = joinGaps(ink, w, h);
+  const queue = new Int32Array(w * h), candidates = [];
   for (let start = 0; start < bits.length; start++) {
     if (!bits[start]) continue;
     let head = 0, tail = 1, minX = w, minY = h, maxX = 0, maxY = 0;
-    let tl, tr, br, bl, minSum = Infinity, maxSum = -Infinity, minDiff = Infinity, maxDiff = -Infinity;
     queue[0] = start; bits[start] = 0;
     while (head < tail) {
       const p = queue[head++], x = p % w, y = Math.floor(p / w);
       minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y);
-      if (x + y < minSum) { minSum = x + y; tl = { x, y }; }
-      if (x + y > maxSum) { maxSum = x + y; br = { x, y }; }
-      if (x - y < minDiff) { minDiff = x - y; bl = { x, y }; }
-      if (x - y > maxDiff) { maxDiff = x - y; tr = { x, y }; }
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         const xx = x + dx, yy = y + dy, q = yy * w + xx;
         if (xx >= 0 && xx < w && yy >= 0 && yy < h && bits[q]) { bits[q] = 0; queue[tail++] = q; }
       }
     }
-    const bw = maxX - minX, bh = maxY - minY, area = bw * bh;
-    if (bw < w * .2 || bh < h * .2 || bw / bh < .45 || bw / bh > 2.2 || tail < (bw + bh) * 2) continue;
-    if (area > score) { score = area; best = [tl, tr, br, bl].map(p => ({ x: p.x / scale, y: p.y / scale })); }
+    const bw = maxX - minX, bh = maxY - minY;
+    if (bw < w * .16 || bh < h * .16 || bw / bh < .3 || bw / bh > 3 || tail < (bw + bh) * 1.5) continue;
+    const left = new Int32Array(h).fill(w), right = new Int32Array(h).fill(-1);
+    for (let i = 0; i < tail; i++) { const p = queue[i]; if (!ink[p]) continue; const y = Math.floor(p / w), x = p % w; left[y] = Math.min(left[y], x); right[y] = Math.max(right[y], x); }
+    const outline = [];
+    for (let y = minY; y <= maxY; y++) if (right[y] >= 0) outline.push({ x: left[y], y }, { x: right[y], y });
+    const quad = quadrilateral(outline)?.map(p => ({ x: p.x / scale, y: p.y / scale }));
+    if (quad && validCorners(quad) && polygonArea(quad) > source.width * source.height * .025) candidates.push(quad);
   }
-  return best ?? (fallback ? [{ x: source.width * .08, y: source.height * .08 }, { x: source.width * .92, y: source.height * .08 }, { x: source.width * .92, y: source.height * .92 }, { x: source.width * .08, y: source.height * .92 }] : null);
+  const aim = { x: target.x * source.width, y: target.y * source.height }, length = Math.min(source.width, source.height), last = previous && center(previous);
+  function rank(quad) {
+    const p = center(quad), inside = quad.every((a, i) => cross(a, quad[(i + 1) % 4], aim) >= 0);
+    const keep = last && Math.hypot(p.x - last.x, p.y - last.y) < length * .08 ? .15 : 0;
+    return (inside ? 2 : 0) - Math.hypot(p.x - aim.x, p.y - aim.y) / length + Math.sqrt(polygonArea(quad) / (source.width * source.height)) * .2 + keep;
+  }
+  return candidates.sort((a, b) => rank(b) - rank(a)).slice(0, 12);
+}
+
+export function detectCorners(source, fallback = true) {
+  const candidates = gridCandidates(source);
+  // Photo review should select an actual grid before considering a page border.
+  for (const points of candidates) if (checkGrid(source, points).valid) return points;
+  return candidates[0] ?? (fallback ? [{ x: source.width * .08, y: source.height * .08 }, { x: source.width * .92, y: source.height * .08 }, { x: source.width * .92, y: source.height * .92 }, { x: source.width * .08, y: source.height * .92 }] : null);
 }
 
 // A framing/quality check, not an OCR or solvability check. Keep it local and
 // small enough to run a few times a second without loading the OCR engine.
-export function assessFrame(frame) {
-  const points = detectCorners(frame, false);
+export function assessFrame(frame, options = {}) {
+  const candidates = gridCandidates(frame, options);
+  let nearestFailure = null;
+  // Rejecting a clipped neighbor must not hide another complete grid in view.
+  for (let points of candidates) {
+    if (options.previous) {
+      let best = points, distance = Infinity;
+      for (let k = 0; k < 4; k++) {
+        const ordered = [...points.slice(k), ...points.slice(0, k)];
+        const d = ordered.reduce((sum, p, i) => sum + Math.hypot(p.x - options.previous[i].x, p.y - options.previous[i].y), 0);
+        if (d < distance) { distance = d; best = ordered; }
+      }
+      points = best;
+    }
+    const result = checkGrid(frame, points);
+    if (result.valid) return result;
+    nearestFailure ??= result;
+  }
+  return nearestFailure ?? { valid: false, message: 'Fit the whole 9 × 9 grid in the frame.', corners: null };
+}
+
+function checkGrid(frame, points) {
   const fail = (message, corners = points) => ({ valid: false, message, corners });
   if (!points || !validCorners(points)) return fail('Fit the whole 9 × 9 grid in the frame.');
-  const xs = points.map(p => p.x), ys = points.map(p => p.y), width = Math.max(...xs) - Math.min(...xs), height = Math.max(...ys) - Math.min(...ys);
-  const pad = frame.width * .018;
+  const length = Math.min(frame.width, frame.height), pad = length * .01;
   if (points.some(p => p.x < pad || p.y < pad || p.x > frame.width - pad || p.y > frame.height - pad)) return fail('Move back to include all four corners.');
-  if (width < frame.width * .5 || height < frame.height * .5) return fail('Move closer to the grid.');
-  if (width / height < .7 || width / height > 1.45) return fail('Hold the camera straight over the grid.');
+  const edges = points.map((p, i) => Math.hypot(p.x - points[(i + 1) % 4].x, p.y - points[(i + 1) % 4].y));
+  if (Math.min(...edges) < length * .23 || polygonArea(points) < length ** 2 * .085) return fail('Move closer to the grid.');
   const size = 360, grid = rectify(frame, points, size), ctx = grid.getContext('2d', { willReadFrequently: true }), image = ctx.getImageData(0, 0, size, size);
   const gray = new Float32Array(size * size); let light = 0;
   for (let i = 0; i < gray.length; i++) { gray[i] = image.data[i * 4] * .299 + image.data[i * 4 + 1] * .587 + image.data[i * 4 + 2] * .114; light += gray[i]; }

@@ -46,7 +46,12 @@ const detectionOnly = process.argv.includes('--detect-only'), reportPath = resol
 const only = process.argv.find(arg => arg.startsWith('--only='))?.slice(7).split(',');
 const selectedCases = only ? cases.filter(item => only.some(id => basename(item.file) === id + '.jpg')) : cases;
 const browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
-const page = await browser.newPage(); await page.goto(process.env.TEST_URL || 'http://127.0.0.1:4173/');
+const visionPath = process.argv.find(arg => arg.startsWith('--vision='))?.slice(9) || 'vision.js';
+const visionSource = await readFile(visionPath, 'utf8');
+const page = await browser.newPage();
+if (visionPath !== 'vision.js') await page.route('**/vision.js', route => route.fulfill({ contentType: 'text/javascript', body: visionSource }));
+// The application imports vision.js during navigation, so overrides must precede it.
+await page.goto(process.env.TEST_URL || 'http://127.0.0.1:4173/');
 const rows = [];
 try {
   for (const item of selectedCases) {
@@ -66,7 +71,10 @@ try {
       const row = { ready: result.valid, message: result.message, corners: selected, cornerError, gridMatched: cornerError === null ? null : cornerError <= .05, detectionMs: Math.round(performance.now() - start) };
       if (detectionOnly) return row;
       try {
+        const readStart = performance.now();
         const ocr = await recognize(rectify(c, selected), () => {}, new AbortController().signal);
+        row.readMs = Math.round(performance.now() - readStart);
+        const { solve } = await import('./solver.js'), solveStart = performance.now(); solve(ocr.board); row.solveMs = performance.now() - solveStart;
         row.board = ocr.board; row.uncertain = [...ocr.uncertain];
         row.orientation = ocr.orientation;
         if (truth) {
@@ -87,5 +95,5 @@ const summary = {
   matchedGrids: labelled.filter(row => row.gridMatched).length, readyFrames: rows.filter(row => row.ready).length,
   ...(detectionOnly ? {} : { exactBoards: labelled.filter(row => row.exact).length, correctClues: labelled.reduce((sum, row) => sum + row.correctClues, 0), totalClues: labelled.reduce((sum, row) => sum + row.clues, 0), falseClues: labelled.reduce((sum, row) => sum + (row.falseClues || 0), 0), occupancyExact: occupancy.filter(row => row.occupancyExact).length, occupancyLabelled: occupancy.length }),
 };
-await writeFile(reportPath, JSON.stringify({ baseRevision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), visionSha256: createHash('sha256').update(await readFile('vision.js')).digest('hex'), sources, summary, rows }, null, 2) + '\n');
+await writeFile(reportPath, JSON.stringify({ baseRevision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), visionSha256: createHash('sha256').update(visionSource).digest('hex'), sources, summary, rows }, null, 2) + '\n');
 console.log(JSON.stringify(summary)); console.log('Report: ' + reportPath);

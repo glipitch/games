@@ -11,6 +11,7 @@ Scan a printed puzzle with the camera or upload a photo. Adjust the four grid co
 - Separates touching grid outlines using the pattern of enclosed cells, and checks digit orientation automatically.
 - Suppresses screen stripe patterns before OCR when background noise is detected.
 - Browser-only OCR; photos are never uploaded or saved by the app.
+- Warms the scanner while framing a photo and reuses its engine and orientation samples for faster reading.
 - Highlights duplicate clues and uncertain scan results.
 - Detects puzzles with no solution or more than one solution.
 - Keyboard arrows to navigate; Delete to clear; Enter to solve.
@@ -42,6 +43,8 @@ For browser checks, install development dependencies with `pnpm install`, instal
 `pnpm test:datasets` downloads and checks 45 real photographs from two pinned public datasets. It requires `tar` for the first download. Images are cached under the ignored `test-results/datasets/` directory. See [the benchmark results and limitations](docs/recognition-benchmark.md).
 
 `pnpm test:photo` checks a local photo against `TEST_EXPECTED` (81 digits, `0` for blanks), with its path in `TEST_PHOTO`. Optional `TEST_CAMERA_CROP=x,y,width,height` also feeds that image region through the camera capture flow. These tests do not upload the photo.
+
+`pnpm test:recognition` checks cancellation and immediate retry during scanner startup, orientation detection, and digit reading, plus worker reuse across all four rotations. `pnpm test:performance` records reading time, OCR call counts, initialization time, and solving time for three photographs. See [timing measurements](docs/performance.md).
 
 ## Credits
 

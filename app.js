@@ -1,5 +1,5 @@
 import { conflicts, solve } from './solver.js';
-import { detectCorners, rectify, recognize, assessFrame } from './vision.js';
+import { detectCorners, rectify, recognize, assessFrame, prepareScanner } from './vision.js';
 
 const $ = id => document.getElementById(id);
 let board = Array(81).fill(0), original = null, uncertain = new Set(), selected = -1;
@@ -69,6 +69,7 @@ function resetScanner(photoMode = false) {
   if (!photoMode) { cameraTarget = { x: .5, y: .5 }; drawGuide(null, false); }
 }
 $('camera').addEventListener('click', async () => {
+  void prepareScanner().catch(() => {});
   if (!navigator.mediaDevices?.getUserMedia) { $('native-camera').click(); return; }
   const request = ++session; resetScanner(); $('scan-status').textContent = 'Opening camera…';
   try {
@@ -79,9 +80,9 @@ $('camera').addEventListener('click', async () => {
     checkCamera(request);
   } catch { if (request === session && dialog.open) { stopCamera(); $('scan-status').textContent = 'Camera unavailable. Allow camera access in your browser, or upload a photo.'; } }
 });
-$('upload').addEventListener('click', () => $('photo').click());
-$('camera-upload').addEventListener('click', () => $('photo').click());
-$('retake').addEventListener('click', () => $('photo').click());
+for (const id of ['upload', 'camera-upload', 'retake']) $(id).addEventListener('click', () => {
+  void prepareScanner().catch(() => {}); $('photo').click();
+});
 function cameraFrame(limit) {
   const side = Math.min(video.videoWidth, video.videoHeight), size = Math.min(side, limit);
   const frame = Object.assign(document.createElement('canvas'), { width: size, height: size });
@@ -137,6 +138,7 @@ function setPhoto(image, selectedCorners = null) {
 for (const id of ['photo', 'native-camera']) $(id).addEventListener('change', async e => {
   const file = e.target.files[0]; e.target.value = ''; if (!file) return;
   if (file.size > 35 * 1024 * 1024) return message('Choose a photo smaller than 35 MB.', true);
+  void prepareScanner().catch(() => {});
   const url = URL.createObjectURL(file), image = new Image();
   try { image.src = url; await image.decode(); setPhoto(image); }
   catch { message('Could not open that photo. Try a JPG, PNG or WebP image.', true); }

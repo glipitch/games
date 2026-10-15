@@ -346,8 +346,9 @@ export function extractDigits(grid) {
     if (maxY - minY < cell * .22 || maxX - minX > cell * .78) { result.push(null); continue; }
     if ((minX + maxX) / 2 < cw * .25 || (minX + maxX) / 2 > cw * .75 || (minY + maxY) / 2 < ch * .2 || (minY + maxY) / 2 > ch * .8) { result.push(null); continue; }
     if (largest.length < cell * cell * .008 && (maxY - minY < cell * .4 || maxX - minX > cell * .2)) { result.push(null); continue; }
-    const glyph = canvas(cw, ch), gc = glyph.getContext('2d'); gc.fillStyle = 'white'; gc.fillRect(0, 0, cw, ch); gc.fillStyle = 'black';
-    for (const p of largest) gc.fillRect(p % cw, Math.floor(p / cw), 1, 1);
+    const glyph = canvas(cw, ch), gc = glyph.getContext('2d'), ink = gc.createImageData(cw, ch); ink.data.fill(255);
+    for (const p of largest) { const q = p * 4; ink.data[q] = ink.data[q + 1] = ink.data[q + 2] = 0; }
+    gc.putImageData(ink, 0, 0);
     const digit = canvas(110), dc = digit.getContext('2d'); dc.fillStyle = 'white'; dc.fillRect(0, 0, 110, 110);
     const height = 70, width = (maxX - minX + 1) / (maxY - minY + 1) * height;
     dc.drawImage(glyph, minX, minY, maxX - minX + 1, maxY - minY + 1, (110 - width) / 2, 20, width, height);
@@ -402,35 +403,72 @@ function loadLibrary() {
   });
 }
 
-export async function recognize(grid, onProgress, signal) {
-  grid = suppressPatternNoise(grid);
-  let digits = extractDigits(grid);
-  if (!digits.some(Boolean)) throw new Error('No digits found. Check the corners and use a clear, well-lit photo.');
-  onProgress(0, 'Loading scanner…'); await loadLibrary(); signal.throwIfAborted();
-  const worker = await Tesseract.createWorker('eng', 1, {
-    workerPath: new URL('./vendor/worker.min.js', import.meta.url).href,
-    corePath: new URL('./vendor/core/', import.meta.url).href,
-    langPath: new URL('./vendor/data/', import.meta.url).href.replace(/\/$/, ''),
-    workerBlobURL: false,
-  });
-  if (signal.aborted) { await worker.terminate(); signal.throwIfAborted(); }
-  const stop = () => { void worker.terminate(); };
-  signal.addEventListener('abort', stop, { once: true });
-  try {
-    signal.throwIfAborted();
+let scanner = null;
+function scannerEntry() {
+  if (scanner) return scanner;
+  const entry = { busy: false, worker: null };
+  scanner = entry;
+  entry.promise = (async () => {
+    await loadLibrary();
+    const worker = entry.worker = await Tesseract.createWorker('eng', 1, {
+      workerPath: new URL('./vendor/worker.min.js', import.meta.url).href,
+      corePath: new URL('./vendor/core/', import.meta.url).href,
+      langPath: new URL('./vendor/data/', import.meta.url).href.replace(/\/$/, ''),
+      workerBlobURL: false,
+    });
     await worker.setParameters({ tessedit_char_whitelist: '123456789', tessedit_pageseg_mode: '8', user_defined_dpi: '150' });
+    return worker;
+  })().catch(error => { if (scanner === entry) scanner = null; void entry.worker?.terminate(); throw error; });
+  return entry;
+}
+
+// Start only after scan intent, overlapping download/initialization with framing.
+export function prepareScanner() { return scannerEntry().promise.then(() => {}); }
+
+export async function recognize(grid, onProgress, signal) {
+  signal.throwIfAborted();
+  const entry = scannerEntry();
+  if (entry.busy) throw new Error('The scanner is already reading a photo.');
+  entry.busy = true;
+  let finished = false, rejectAbort, pending = null;
+  const aborted = new Promise((_, reject) => { rejectAbort = reject; });
+  const stop = () => {
+    if (scanner === entry) scanner = null;
+    // Tesseract may still be encoding a canvas before posting it to the worker.
+    // Let that job settle before termination; the caller cancels immediately.
+    void entry.promise.then(async worker => { await pending?.catch(() => {}); await worker.terminate(); }, () => {});
+  };
+  const abort = () => { stop(); rejectAbort(signal.reason); };
+  signal.addEventListener('abort', abort, { once: true });
+  try {
+    grid = suppressPatternNoise(grid);
+    let digits = extractDigits(grid);
+    if (!digits.some(Boolean)) throw new Error('No digits found. Check the corners and use a clear, well-lit photo.');
+    onProgress(0, 'Loading scanner…'); const worker = await Promise.race([entry.promise, aborted]);
+    signal.throwIfAborted();
+    const readDigit = image => { pending = worker.recognize(image); return Promise.race([pending, aborted]); };
     function rotate(source, turns) {
       if (!turns) return source;
       const c = canvas(source.width, source.height), ctx = c.getContext('2d'); ctx.translate(c.width / 2, c.height / 2); ctx.rotate(turns * Math.PI / 2); ctx.drawImage(source, -source.width / 2, -source.height / 2); return c;
     }
     const occupied = digits.map((digit, i) => digit ? i : -1).filter(i => i >= 0);
     const sample = Array.from({ length: Math.min(8, occupied.length) }, (_, i) => occupied[Math.floor(i * occupied.length / Math.min(8, occupied.length))]);
-    const scores = [];
+    const scores = [], upright = new Map();
     onProgress(0, 'Checking orientation…');
     for (let turns = 0; turns < 4; turns++) {
       let score = 0;
-      for (const i of sample) { signal.throwIfAborted(); const { data } = await worker.recognize(rotate(digits[i].gray, turns)); if (/^[1-9]$/.test(data.text.trim())) score += data.confidence; }
+      for (let j = 0; j < sample.length; j++) {
+        signal.throwIfAborted(); const i = sample[j], { data } = await readDigit(rotate(digits[i].gray, turns));
+        if (!turns) upright.set(i, data);
+        if (/^[1-9]$/.test(data.text.trim())) score += data.confidence;
+        // An unfinished orientation cannot win if even perfect remaining digits
+        // cannot beat both the current best and the required upright margin.
+        const needed = Math.max(scores[0] + 8, ...scores) * sample.length;
+        if (turns && score + (sample.length - j - 1) * 100 <= needed) break;
+      }
       scores.push(score / sample.length);
+      // Confidence is bounded by 100, so no rotation can clear the +8 margin.
+      if (!turns && scores[0] >= 92) break;
     }
     const best = scores.indexOf(Math.max(...scores)), orientation = scores[best] > scores[0] + 8 ? best : 0;
     if (orientation) digits = extractDigits(rotate(grid, orientation));
@@ -438,9 +476,9 @@ export async function recognize(grid, onProgress, signal) {
     for (let i = 0; i < 81; i++) {
       signal.throwIfAborted();
       if (digits[i]) {
-        let { data } = await worker.recognize(digits[i].gray);
+        let data = !orientation && upright.get(i) || (await readDigit(digits[i].gray)).data;
         if (!/^[1-9]$/.test(data.text.trim()) || data.confidence < 75) {
-          const alternate = await worker.recognize(digits[i]);
+          const alternate = await readDigit(digits[i]);
           if (/^[1-9]$/.test(alternate.data.text.trim()) && alternate.data.confidence > data.confidence) data = alternate.data;
         }
         const text = data.text.trim();
@@ -449,6 +487,10 @@ export async function recognize(grid, onProgress, signal) {
       }
       onProgress(i + 1, 'Reading the numbers…');
     }
+    finished = true;
     return { board, uncertain, orientation };
-  } finally { signal.removeEventListener('abort', stop); if (!signal.aborted) await worker.terminate(); }
+  } finally {
+    signal.removeEventListener('abort', abort); entry.busy = false;
+    if (!finished && !signal.aborted) stop();
+  }
 }

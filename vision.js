@@ -22,7 +22,7 @@ export function threshold(image, radius = 12, offset = 14) {
 }
 
 // Connected grid lines form one component. Its four extrema suggest the corners.
-export function detectCorners(source) {
+export function detectCorners(source, fallback = true) {
   const scale = Math.min(1, 650 / Math.max(source.width, source.height));
   const small = canvas(Math.round(source.width * scale), Math.round(source.height * scale));
   const ctx = small.getContext('2d', { willReadFrequently: true }); ctx.drawImage(source, 0, 0, small.width, small.height);
@@ -49,7 +49,59 @@ export function detectCorners(source) {
     if (bw < w * .2 || bh < h * .2 || bw / bh < .45 || bw / bh > 2.2 || tail < (bw + bh) * 2) continue;
     if (area > score) { score = area; best = [tl, tr, br, bl].map(p => ({ x: p.x / scale, y: p.y / scale })); }
   }
-  return best ?? [{ x: source.width * .08, y: source.height * .08 }, { x: source.width * .92, y: source.height * .08 }, { x: source.width * .92, y: source.height * .92 }, { x: source.width * .08, y: source.height * .92 }];
+  return best ?? (fallback ? [{ x: source.width * .08, y: source.height * .08 }, { x: source.width * .92, y: source.height * .08 }, { x: source.width * .92, y: source.height * .92 }, { x: source.width * .08, y: source.height * .92 }] : null);
+}
+
+// A framing/quality check, not an OCR or solvability check. Keep it local and
+// small enough to run a few times a second without loading the OCR engine.
+export function assessFrame(frame) {
+  const points = detectCorners(frame, false);
+  const fail = (message, corners = points) => ({ valid: false, message, corners });
+  if (!points || !validCorners(points)) return fail('Fit the whole 9 × 9 grid in the frame.');
+  const xs = points.map(p => p.x), ys = points.map(p => p.y), width = Math.max(...xs) - Math.min(...xs), height = Math.max(...ys) - Math.min(...ys);
+  const pad = frame.width * .018;
+  if (points.some(p => p.x < pad || p.y < pad || p.x > frame.width - pad || p.y > frame.height - pad)) return fail('Move back to include all four corners.');
+  if (width < frame.width * .5 || height < frame.height * .5) return fail('Move closer to the grid.');
+  if (width / height < .7 || width / height > 1.45) return fail('Hold the camera straight over the grid.');
+  const size = 360, grid = rectify(frame, points, size), ctx = grid.getContext('2d', { willReadFrequently: true }), image = ctx.getImageData(0, 0, size, size);
+  const gray = new Float32Array(size * size); let light = 0;
+  for (let i = 0; i < gray.length; i++) { gray[i] = image.data[i * 4] * .299 + image.data[i * 4 + 1] * .587 + image.data[i * 4 + 2] * .114; light += gray[i]; }
+  light /= gray.length;
+  if (light < 55) return fail('Add more light.');
+  let sharp = 0, lapMean = 0, samples = 0;
+  for (let y = 4; y < size - 4; y++) for (let x = 4; x < size - 4; x++) {
+    const p = y * size + x, lap = gray[p - 1] + gray[p + 1] + gray[p - size] + gray[p + size] - 4 * gray[p];
+    sharp += lap * lap; lapMean += lap; samples++;
+  }
+  const sharpness = sharp / samples - (lapMean / samples) ** 2;
+  if (sharpness < 45) return fail('Hold still and let the camera focus.');
+  const bits = threshold(image, 10, 10);
+  function lines(horizontal) {
+    let count = 0;
+    for (let k = 1; k < 9; k++) {
+      let best = 0;
+      for (let p = k * 40 - 10; p <= k * 40 + 10; p++) {
+        let score = 0;
+        for (let q = 12; q < size - 12; q++) {
+          let hit = 0;
+          for (let d = -2; d <= 2; d++) hit |= horizontal ? bits[(p + d) * size + q] : bits[q * size + p + d];
+          score += hit;
+        }
+        best = Math.max(best, score);
+      }
+      if (best > (size - 24) * .5) count++;
+    }
+    return count;
+  }
+  if (lines(true) < 7 || lines(false) < 7) return fail('Keep all nine rows and columns visible.');
+  let clues = 0;
+  for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+    let ink = 0;
+    for (let y = r * 40 + 10; y < r * 40 + 30; y++) for (let x = c * 40 + 10; x < c * 40 + 30; x++) ink += bits[y * size + x];
+    if (ink > 12 && ink < 280) clues++;
+  }
+  if (clues < 10) return fail('Include the printed numbers in the frame.');
+  return { valid: true, message: 'Grid ready. Take photo.', corners: points, sharpness };
 }
 
 export function validCorners(points) {

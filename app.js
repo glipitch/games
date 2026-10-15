@@ -1,8 +1,7 @@
 import { conflicts, solve } from './solver.js';
-import { detectCorners, rectify, recognize } from './vision.js';
+import { detectCorners, rectify, recognize, assessFrame } from './vision.js';
 
 const $ = id => document.getElementById(id);
-const example = '530070000600195000098000060800060003400803001700020006060000280000419005000080079';
 let board = Array(81).fill(0), original = null, uncertain = new Set(), selected = -1;
 const cells = Array.from({ length: 81 }, (_, i) => {
   const input = document.createElement('input'); input.className = 'cell'; input.type = 'text'; input.inputMode = 'numeric'; input.autocomplete = 'off'; input.spellcheck = false;
@@ -22,7 +21,7 @@ const cells = Array.from({ length: 81 }, (_, i) => {
   });
   $('board').append(input); return input;
 });
-function message(text, error = false) { $('status').textContent = text || 'Scan a puzzle, or type in the numbers.'; $('status').classList.toggle('error', error); }
+function message(text, error = false) { $('status').textContent = text; $('status').classList.toggle('error', error); }
 function paint() {
   const bad = conflicts(board);
   cells.forEach((input, i) => {
@@ -31,15 +30,14 @@ function paint() {
     input.classList.toggle('peer', peer); input.classList.toggle('invalid', bad.has(i)); input.classList.toggle('uncertain', uncertain.has(i)); input.classList.toggle('answer', !!original && !original[i]);
     input.setAttribute('aria-invalid', String(bad.has(i))); input.title = uncertain.has(i) ? 'Check this scanned digit' : '';
   });
-  $('count').textContent = `${board.filter(Boolean).length} / 81`;
-  $('undo').hidden = !original; $('example').hidden = !!original;
+  $('undo').hidden = !original;
 }
 $('board').addEventListener('paste', e => {
   const text = e.clipboardData.getData('text').replace(/[\s|+\-]/g, '');
   if (text.length === 81 && /^[0-9.]+$/.test(text)) { e.preventDefault(); board = [...text].map(x => Number(x) || 0); original = null; uncertain.clear(); paint(); message('Puzzle pasted.'); }
 });
 $('solve').addEventListener('click', () => {
-  if (!board.some(Boolean)) return message('Add some numbers first, or try an example.', true);
+  if (!board.some(Boolean)) return message('Add the numbers first.', true);
   const result = solve(board);
   if (result.kind === 'conflict') return message('Check the marked numbers. A row, column or box has a repeat.', true);
   if (result.kind === 'impossible') return message('No solution. Check the numbers against your puzzle.', true);
@@ -47,12 +45,12 @@ $('solve').addEventListener('click', () => {
   if (!original) original = [...board]; board = result.solution; uncertain.clear(); paint(); message('Solved.');
 });
 $('clear').addEventListener('click', () => { board.fill(0); original = null; uncertain.clear(); paint(); message(''); });
-$('example').addEventListener('click', () => { board = [...example].map(Number); original = null; uncertain.clear(); paint(); message('An example puzzle. Ready when you are.'); });
 $('undo').addEventListener('click', () => { board = original; original = null; paint(); message('Back to your puzzle.'); });
 
 const dialog = $('scan-dialog'), video = $('video'), crop = $('crop');
 let stream = null, source = null, corners = null, dragging = -1, controller = null, session = 0;
-const stopCamera = () => { stream?.getTracks().forEach(track => track.stop()); stream = null; video.srcObject = null; };
+let cameraTimer = null, cameraReady = false, stableFrames = 0, previousCorners = null;
+const stopCamera = () => { clearTimeout(cameraTimer); cameraTimer = null; cameraReady = false; stableFrames = 0; previousCorners = null; stream?.getTracks().forEach(track => track.stop()); stream = null; video.srcObject = null; };
 function closeScanner() { session++; stopCamera(); controller?.abort(); controller = null; source = null; corners = null; if (dialog.open) dialog.close(); }
 dialog.addEventListener('cancel', e => { e.preventDefault(); closeScanner(); });
 dialog.addEventListener('close', () => { stopCamera(); controller?.abort(); });
@@ -63,9 +61,11 @@ function resetScanner(photoMode = false) {
   $('scan-title').textContent = photoMode ? 'Align the grid' : 'Scan puzzle';
   $('scan-help').textContent = photoMode ? 'Drag the four corners to the outside edges of the grid.' : 'Fit the whole puzzle in the frame.';
   video.hidden = photoMode; $('camera-guide').hidden = photoMode; crop.hidden = !photoMode;
+  $('viewfinder').classList.toggle('camera-mode', !photoMode);
   $('crop-tools').hidden = !photoMode; $('capture').hidden = photoMode; $('capture').disabled = true;
   $('read').hidden = !photoMode; $('read').disabled = false; $('rotate').disabled = false; $('retake').disabled = false;
   $('camera-upload').hidden = photoMode; $('progress').hidden = true; $('scan-status').textContent = '';
+  if (!photoMode) drawGuide(null, false);
 }
 $('camera').addEventListener('click', async () => {
   if (!navigator.mediaDevices?.getUserMedia) { $('native-camera').click(); return; }
@@ -75,12 +75,49 @@ $('camera').addEventListener('click', async () => {
     if (request !== session || !dialog.open) { media.getTracks().forEach(t => t.stop()); return; }
     stream = media; video.srcObject = media; await video.play();
     if (request !== session || !dialog.open) return;
-    $('capture').disabled = false; $('scan-status').textContent = '';
+    checkCamera(request);
   } catch { if (request === session && dialog.open) { stopCamera(); $('scan-status').textContent = 'Camera unavailable. Allow camera access in your browser, or upload a photo.'; } }
 });
 $('upload').addEventListener('click', () => $('photo').click());
 $('camera-upload').addEventListener('click', () => $('photo').click());
 $('retake').addEventListener('click', () => $('photo').click());
+function cameraFrame(limit) {
+  const side = Math.min(video.videoWidth, video.videoHeight), size = Math.min(side, limit);
+  const frame = Object.assign(document.createElement('canvas'), { width: size, height: size });
+  frame.getContext('2d').drawImage(video, (video.videoWidth - side) / 2, (video.videoHeight - side) / 2, side, side, 0, 0, size, size);
+  return frame;
+}
+function drawGuide(points, ready, size = 640) {
+  const overlay = $('camera-guide'); overlay.width = overlay.height = size;
+  const ctx = overlay.getContext('2d');
+  const quad = points ?? [{ x: size * .1, y: size * .1 }, { x: size * .9, y: size * .1 }, { x: size * .9, y: size * .9 }, { x: size * .1, y: size * .9 }];
+  ctx.beginPath(); ctx.rect(0, 0, size, size); quad.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath(); ctx.fillStyle = '#071b1399'; ctx.fill('evenodd');
+  ctx.beginPath(); quad.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath(); ctx.lineWidth = 2; ctx.strokeStyle = ready ? '#a7f7a9' : '#ffffffaa'; ctx.stroke();
+  ctx.lineWidth = 7; ctx.strokeStyle = ready ? '#a7f7a9' : '#fff'; ctx.lineCap = 'square';
+  for (let i = 0; i < 4; i++) {
+    const p = quad[i], before = quad[(i + 3) % 4], after = quad[(i + 1) % 4];
+    ctx.beginPath();
+    for (const [n, neighbor] of [before, after].entries()) {
+      const length = Math.hypot(neighbor.x - p.x, neighbor.y - p.y), t = Math.min(.25, 28 / length);
+      const x = p.x + (neighbor.x - p.x) * t, y = p.y + (neighbor.y - p.y) * t;
+      if (!n) { ctx.moveTo(x, y); ctx.lineTo(p.x, p.y); } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+}
+function checkCamera(request) {
+  if (request !== session || !stream || !dialog.open) return;
+  if (video.readyState >= 2 && video.videoWidth) {
+    const frame = cameraFrame(640), result = assessFrame(frame);
+    const steady = result.valid && previousCorners && result.corners.every((p, i) => Math.hypot(p.x - previousCorners[i].x, p.y - previousCorners[i].y) < frame.width * .025);
+    stableFrames = result.valid ? (steady ? stableFrames + 1 : 1) : 0;
+    previousCorners = result.valid ? result.corners : null; cameraReady = stableFrames >= 3;
+    $('capture').disabled = !cameraReady;
+    $('scan-status').textContent = result.valid && !cameraReady ? 'Hold steady…' : result.message;
+    drawGuide(result.corners, cameraReady, frame.width);
+  }
+  cameraTimer = setTimeout(() => checkCamera(request), 350);
+}
 function setPhoto(image) {
   stopCamera(); session++;
   const width = image.naturalWidth || image.videoWidth || image.width, height = image.naturalHeight || image.videoHeight || image.height;
@@ -98,10 +135,11 @@ for (const id of ['photo', 'native-camera']) $(id).addEventListener('change', as
   finally { URL.revokeObjectURL(url); }
 });
 $('capture').addEventListener('click', () => {
-  if (!video.videoWidth) return;
+  if (!video.videoWidth || !cameraReady) return;
+  const result = assessFrame(cameraFrame(640));
+  if (!result.valid) { cameraReady = false; stableFrames = 0; $('capture').disabled = true; $('scan-status').textContent = result.message; drawGuide(result.corners, false); return; }
   // Copy before stopping the video stream.
-  const frame = Object.assign(document.createElement('canvas'), { width: video.videoWidth, height: video.videoHeight });
-  frame.getContext('2d').drawImage(video, 0, 0); setPhoto(frame);
+  setPhoto(cameraFrame(1600));
 });
 function drawCrop() {
   crop.width = source.width; crop.height = source.height;

@@ -5,6 +5,7 @@ A minimal camera-based sudoku solver for desktop and mobile browsers.
 Scan a printed puzzle with the camera or upload a photo. Adjust the four grid corners, read the numbers, correct anything that needs attention, and solve. You can also type clues or paste an 81-character puzzle using `0` or `.` for empty cells.
 
 - Responsive layout and touch-friendly corner adjustment.
+- Compact controls and a live camera outline that turns green when the complete grid is clear and steady. Capture stays disabled for missing, clipped, blurred, or unsteady grids. This checks framing and image quality; digit accuracy and puzzle solvability are checked after scanning.
 - Automatic grid detection, perspective correction, and local grid-line alignment for curved paper.
 - Browser-only OCR; photos are never uploaded or saved by the app.
 - Highlights duplicate clues and uncertain scan results.
@@ -33,7 +34,7 @@ This is a static site with no server, API keys, analytics, or third-party runtim
 node --test tests/solver.test.js
 ```
 
-For browser checks, install development dependencies with `pnpm install`, install Chromium with `pnpm exec playwright install chromium`, and start the local server. Then run `pnpm test:browser`. Set `PLAYWRIGHT_CHANNEL=chrome` to use an installed Google Chrome instead. Browser checks cover solving, correction, desktop and mobile layout, camera lifecycle with a simulated camera, printed and photographed puzzle recognition, and absence of external network requests.
+For browser checks, install development dependencies with `pnpm install`, install Chromium with `pnpm exec playwright install chromium`, and start the local server. Then run `pnpm test:browser`. Set `PLAYWRIGHT_CHANNEL=chrome` to use an installed Google Chrome instead, or `TEST_URL` to check a deployed site. Browser checks cover solving, correction, desktop and mobile layout, camera readiness and lifecycle with a changing video feed, rejection of cropped/blurred/incorrect grids, printed and photographed puzzle recognition, and absence of external network requests.
 
 ## Credits
 

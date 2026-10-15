@@ -429,5 +429,6 @@
     "holdout/image203.jpg",
     "holdout/image1006.jpg",
     "holdout/image1076.jpg"
-  ]
+  ],
+  "referenceVisionSha256": "c6b90aa42873f3ebb9c98c89daf457cc242c094d43212e2bad3cbe3de14f4225"
 }

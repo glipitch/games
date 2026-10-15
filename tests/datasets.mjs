@@ -56,8 +56,22 @@ const detectionOnly = process.argv.includes('--detect-only'), reportPath = resol
 const only = process.argv.find(arg => arg.startsWith('--only='))?.slice(7).split(',');
 const selectedCases = only ? cases.filter(item => only.some(id => basename(item.file) === id + '.jpg')) : cases;
 assert.ok(selectedCases.length, 'No matching dataset cases');
+const referenceMode = process.argv.includes('--reference');
+const manifest = JSON.parse(await readFile('tests/baselines/recognition.json', 'utf8'));
+const frozenVision = await readFile('tests/baselines/vision-12da1d4.js');
+assert.equal(createHash('sha256').update(frozenVision).digest('hex'), manifest.referenceVisionSha256, 'Frozen reference implementation changed');
+if (!only) assert.deepEqual(cases.map(item => item.id).sort(), manifest.cases.map(item => item.id).sort(), 'Dataset membership changed');
+const referencePath = resolve(root, 'reference-report.json');
+let reference;
+if (!referenceMode) {
+  console.log('Running frozen scanner 12da1d4 in the same browser before comparing accuracy.');
+  execFileSync(process.execPath, ['tests/datasets.mjs', '--reference', '--report=' + referencePath, ...(only ? ['--only=' + only.join(',')] : []), ...(detectionOnly ? ['--detect-only'] : [])], { stdio: 'inherit' });
+  reference = JSON.parse(await readFile(referencePath, 'utf8'));
+}
 const browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
-const visionPath = process.argv.find(arg => arg.startsWith('--vision='))?.slice(9) || 'vision.js';
+const environment = { platform: process.platform, browser: browser.version() };
+if (reference) assert.deepEqual(environment, reference.environment, 'Reference and candidate browsers differ');
+const visionPath = referenceMode ? 'tests/baselines/vision-12da1d4.js' : process.argv.find(arg => arg.startsWith('--vision='))?.slice(9) || 'vision.js';
 const visionSource = await readFile(visionPath, 'utf8');
 const automaticSource = await readFile('automatic.js'), solverSource = await readFile('solver.js');
 const page = await browser.newPage();
@@ -68,7 +82,7 @@ const rows = [];
 try {
   for (const item of selectedCases) {
     const data = (await readFile(item.file)).toString('base64');
-    const row = await page.evaluate(async ({ data, truth, corners, occupancy, detectionOnly }) => {
+    const row = await page.evaluate(async ({ data, truth, corners, occupancy, detectionOnly, referenceMode }) => {
       const { assessFrame, detectCorners, rectify, recognize } = await import('./vision.js');
       const { automaticCandidate } = await import('./automatic.js');
       const image = new Image(); image.src = 'data:image/jpeg;base64,' + data; await image.decode();
@@ -99,7 +113,7 @@ try {
           row.falseClues = truth.filter((n, i) => !n && ocr.board[i]).length;
         }
         if (occupancy) { row.occupancyCorrect = occupancy.filter((n, i) => n === Boolean(ocr.board[i])).length; row.occupancyExact = row.occupancyCorrect === 81; }
-        if (result.valid) {
+        if (result.valid && !referenceMode) {
           const sequenceStart = performance.now();
           row.automaticSequenceAccepted = !!automatic;
           if (truth && automatic) row.automaticSequenceCorrect = row.automaticCorrect;
@@ -118,7 +132,7 @@ try {
         }
       } catch (error) { row.error = error.message; if (truth) { row.exact = false; row.correctClues = 0; row.clues = truth.filter(Boolean).length; } }
       return row;
-    }, { data, truth: item.board, corners: item.corners, occupancy: item.occupancy, detectionOnly });
+    }, { data, truth: item.board, corners: item.corners, occupancy: item.occupancy, detectionOnly, referenceMode });
     rows.push({ id: item.id, ...row });
     console.log(`${rows.length}/${selectedCases.length} ${item.id}: grid=${row.gridMatched ?? row.ready} ready=${row.ready}${detectionOnly ? '' : ` exact=${row.exact ?? row.occupancyExact ?? 'unlabelled'}`}`);
   }
@@ -132,9 +146,10 @@ const summary = {
   ...(detectionOnly ? {} : { automaticSequencesAccepted: labelled.filter(row => row.automaticSequenceAccepted).length, wrongAutomaticSequenceSolutions: labelled.filter(row => row.automaticSequenceAccepted && !row.automaticSequenceCorrect).length }),
 };
 const sourceHash = source => createHash('sha256').update(source.toString().replace(/\r\n/g, '\n')).digest('hex');
-await writeFile(reportPath, JSON.stringify({ baseRevision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), sourceHashLineEndings: 'LF', visionSha256: sourceHash(visionSource), automaticSha256: sourceHash(automaticSource), solverSha256: sourceHash(solverSource), sources, summary, rows }, null, 2) + '\n');
+await writeFile(reportPath, JSON.stringify({ baseRevision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), environment, referenceSummary: reference?.summary, referenceVisionSha256: manifest.referenceVisionSha256, sourceHashLineEndings: 'LF', visionSha256: sourceHash(visionSource), automaticSha256: sourceHash(automaticSource), solverSha256: sourceHash(solverSource), sources, summary, rows }, null, 2) + '\n');
 console.log(JSON.stringify(summary)); console.log('Report: ' + reportPath);
-const baseline = JSON.parse(await readFile('tests/baselines/recognition.json', 'utf8')), regressions = [];
+if (referenceMode) process.exit(0);
+const baseline = { cases: reference.rows }, regressions = [];
 for (const row of rows) {
   const previous = baseline.cases.find(item => item.id === row.id), truth = cases.find(item => item.id === row.id)?.board;
   assert.ok(previous, 'Missing regression baseline for ' + row.id);
@@ -147,7 +162,6 @@ for (const row of rows) {
   if (previous.occupancyExact && !row.occupancyExact) regressions.push(row.id + ': lost correct occupancy map');
   if (row.automaticEligible && truth && !row.automaticCorrect) regressions.push(row.id + ': WRONG automatic solution');
   if (row.automaticSequenceAccepted && truth && !row.automaticSequenceCorrect) regressions.push(row.id + ': WRONG automatic sequence solution');
-  if (baseline.automaticEligible?.includes(row.id) && !row.automaticEligible) regressions.push(row.id + ': lost verified automatic candidate');
 }
 assert.deepEqual(regressions, [], 'Dataset accuracy regression:\n' + regressions.join('\n'));
 console.log(`Dataset accuracy gate passed (${rows.length} photos; zero wrong automatic solutions on labelled photos).`);

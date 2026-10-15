@@ -24,5 +24,6 @@ jobs:
           name: sudoku-test-results
           path: |
             test-results/datasets/report.json
+            test-results/datasets/reference-report.json
             test-results/*.png
             test-results/automatic.json

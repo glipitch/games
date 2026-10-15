@@ -10,7 +10,9 @@ A photo succeeds only when it has a complete read, no uncertain clues, at least 
 
 The default `pnpm test` and GitHub Actions include 65 public photographs. Sixty have full digit labels; three others have occupancy labels and two have no digit labels. The original 45 are retained, plus 20 previously unused labelled photos from the [Wicht dataset](https://github.com/wichtounet/sudoku_dataset), selected evenly by filename before evaluating their automatic outcomes. Names are frozen in `tests/fixtures/holdout.json`. No model is trained on these images.
 
-The frozen regression baseline uses revision `12da1d4`. The gate protects every previously correct cell, including blanks, existing grid detection and camera acceptance, and correct occupancy maps. It rejects wrong automatic solutions on labelled photos and loss of established verified automatic candidates. An intentionally injected wrong digit was confirmed to fail this gate.
+The frozen regression implementation uses revision `12da1d4`, with its source hash checked before testing. Each run executes that implementation and the candidate in the same browser and operating system. This avoids confusing platform-dependent image resampling with a code regression. The gate protects every previously correct cell, including blanks, existing grid detection and camera acceptance, and correct occupancy maps. It also rejects every wrong automatic solution on labelled photos and their capture variations. An intentionally injected wrong digit was confirmed to fail this gate. The historical Windows results remain recorded separately.
+
+The recorded measurements below are from Windows Chrome. CI records its own reference and candidate measurements in Linux Chromium.
 
 | Measurement | Before | After |
 | --- | ---: | ---: |

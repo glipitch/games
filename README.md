@@ -8,6 +8,8 @@ Scan a printed puzzle with the camera or upload a photo. Adjust the four grid co
 - Compact controls and a live camera outline that turns green when the complete grid is clear and steady. Capture stays disabled for missing, clipped, blurred, or unsteady grids. This checks framing and image quality; digit accuracy and puzzle solvability are checked after scanning.
 - Automatic grid detection, perspective correction, and local grid-line alignment for curved paper.
 - Finds angled grids among nearby puzzles. Centre the intended puzzle or tap it in the camera preview; capture and rotation keep that selection.
+- Separates touching grid outlines using the pattern of enclosed cells, and checks digit orientation automatically.
+- Suppresses screen stripe patterns before OCR when background noise is detected.
 - Browser-only OCR; photos are never uploaded or saved by the app.
 - Highlights duplicate clues and uncertain scan results.
 - Detects puzzles with no solution or more than one solution.
@@ -36,6 +38,10 @@ node --test tests/solver.test.js
 ```
 
 For browser checks, install development dependencies with `pnpm install`, install Chromium with `pnpm exec playwright install chromium`, and start the local server. Then run `pnpm test:browser`. Set `PLAYWRIGHT_CHANNEL=chrome` to use an installed Google Chrome instead, or `TEST_URL` to check a deployed site. Browser checks cover solving, correction, desktop and mobile layout, camera readiness and lifecycle with a changing video feed, rejection of cropped/blurred/incorrect grids, printed and photographed puzzle recognition, and absence of external network requests.
+
+`pnpm test:datasets` downloads and checks 45 real photographs from two pinned public datasets. It requires `tar` for the first download. Images are cached under the ignored `test-results/datasets/` directory. See [the benchmark results and limitations](docs/recognition-benchmark.md).
+
+`pnpm test:photo` checks a local photo against `TEST_EXPECTED` (81 digits, `0` for blanks), with its path in `TEST_PHOTO`. Optional `TEST_CAMERA_CROP=x,y,width,height` also feeds that image region through the camera capture flow. These tests do not upload the photo.
 
 ## Credits
 

@@ -73,11 +73,64 @@ function joinGaps(bits, w, h) {
   }
   return source;
 }
-function gridCandidates(source, { target = { x: .5, y: .5 }, previous = null } = {}) {
+function gridsFromCells(white, w, h, queue, expansion = 5, step = 1.8) {
+  // Grid borders can touch captions or a second diagram. Enclosed cell spaces
+  // still form their own lattice, even when the dark outlines are connected.
+  const cells = [];
+  for (let start = 0; start < white.length; start++) {
+    if (!white[start]) continue;
+    let head = 0, tail = 1, minX = w, maxX = 0, minY = h, maxY = 0, edge = false;
+    queue[0] = start; white[start] = 0;
+    while (head < tail) {
+      const p = queue[head++], x = p % w, y = Math.floor(p / w);
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) edge = true;
+      for (const q of [x ? p - 1 : -1, x < w - 1 ? p + 1 : -1, y ? p - w : -1, y < h - 1 ? p + w : -1]) {
+        if (q >= 0 && white[q]) { white[q] = 0; queue[tail++] = q; }
+      }
+    }
+    const bw = maxX - minX + 1, bh = maxY - minY + 1;
+    if (edge || bw < 5 || bh < 5 || bw > Math.min(w, h) * .23 || bh > Math.min(w, h) * .23 || bw / bh < .3 || bw / bh > 3 || tail < bw * bh * .45) continue;
+    const left = new Int32Array(bh).fill(w), right = new Int32Array(bh).fill(-1);
+    for (let i = 0; i < tail; i++) { const p = queue[i], y = Math.floor(p / w) - minY, x = p % w; left[y] = Math.min(left[y], x); right[y] = Math.max(right[y], x); }
+    const outline = [];
+    for (let y = 0; y < bh; y++) if (right[y] >= 0) outline.push({ x: left[y], y: y + minY }, { x: right[y], y: y + minY });
+    const quad = quadrilateral(outline);
+    if (!quad || polygonArea(quad) < 20 || tail < polygonArea(quad) * .6) continue;
+    const ux = quad[1].x + quad[2].x - quad[0].x - quad[3].x, uy = quad[1].y + quad[2].y - quad[0].y - quad[3].y;
+    const vx = quad[2].x + quad[3].x - quad[0].x - quad[1].x, vy = quad[2].y + quad[3].y - quad[0].y - quad[1].y;
+    const ul = Math.hypot(ux, uy), vl = Math.hypot(vx, vy);
+    cells.push({ quad, center: center(quad), u: { x: ux / ul, y: uy / ul }, v: { x: vx / vl, y: vy / vl }, width: ul / 2, height: vl / 2 });
+  }
+  const parents = cells.map((_, i) => i);
+  function root(i) { while (parents[i] !== i) { parents[i] = parents[parents[i]]; i = parents[i]; } return i; }
+  for (let i = 0; i < cells.length; i++) for (let j = i + 1; j < cells.length; j++) {
+    const a = cells[i], b = cells[j];
+    if (Math.min(a.width, b.width) / Math.max(a.width, b.width) < .6 || Math.min(a.height, b.height) / Math.max(a.height, b.height) < .6) continue;
+    if (a.u.x * b.u.x + a.u.y * b.u.y < .96 || a.v.x * b.v.x + a.v.y * b.v.y < .96) continue;
+    const dx = b.center.x - a.center.x, dy = b.center.y - a.center.y, det = a.u.x * a.v.y - a.u.y * a.v.x;
+    const du = Math.abs((dx * a.v.y - dy * a.v.x) / det) / ((a.width + b.width) / 2);
+    const dv = Math.abs((dy * a.u.x - dx * a.u.y) / det) / ((a.height + b.height) / 2);
+    if ((du >= .75 && du <= step && dv < .3) || (dv >= .75 && dv <= step && du < .3)) parents[root(j)] = root(i);
+  }
+  const groups = new Map();
+  cells.forEach((cell, i) => { const key = root(i); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(cell); });
+  const candidates = [];
+  for (const group of groups.values()) {
+    if (group.length < 49 || group.length > 100) continue;
+    const quad = quadrilateral(group.flatMap(cell => cell.quad)); if (!quad) continue;
+    const middle = center(quad), edge = quad.reduce((sum, p, i) => sum + Math.hypot(p.x - quad[(i + 1) % 4].x, p.y - quad[(i + 1) % 4].y), 0) / 4;
+    const factor = 1 + expansion / edge;
+    candidates.push(quad.map(p => ({ x: middle.x + (p.x - middle.x) * factor, y: middle.y + (p.y - middle.y) * factor })));
+  }
+  return candidates;
+}
+function gridCandidates(source, { target = { x: .5, y: .5 }, previous = null, contrast = 14 } = {}) {
   const scale = Math.min(1, 650 / Math.max(source.width, source.height));
   const small = canvas(Math.round(source.width * scale), Math.round(source.height * scale));
   const ctx = small.getContext('2d', { willReadFrequently: true }); ctx.drawImage(source, 0, 0, small.width, small.height);
-  const w = small.width, h = small.height, ink = threshold(ctx.getImageData(0, 0, w, h)), bits = joinGaps(ink, w, h);
+  const w = small.width, h = small.height, ink = threshold(ctx.getImageData(0, 0, w, h), 12, contrast), bits = joinGaps(ink, w, h);
+  const whiteFine = Uint8Array.from(bits, n => n ? 0 : 1), whiteWide = Uint8Array.from(joinGaps(bits, w, h), n => n ? 0 : 1);
   const queue = new Int32Array(w * h), candidates = [];
   for (let start = 0; start < bits.length; start++) {
     if (!bits[start]) continue;
@@ -100,6 +153,10 @@ function gridCandidates(source, { target = { x: .5, y: .5 }, previous = null } =
     const quad = quadrilateral(outline)?.map(p => ({ x: p.x / scale, y: p.y / scale }));
     if (quad && validCorners(quad) && polygonArea(quad) > source.width * source.height * .025) candidates.push(quad);
   }
+  for (const quad of [...gridsFromCells(whiteFine, w, h, queue), ...gridsFromCells(whiteWide, w, h, queue, 7, 2)]) {
+    const points = quad.map(p => ({ x: p.x / scale, y: p.y / scale }));
+    if (validCorners(points)) candidates.push(points);
+  }
   const aim = { x: target.x * source.width, y: target.y * source.height }, length = Math.min(source.width, source.height), last = previous && center(previous);
   function rank(quad) {
     const p = center(quad), inside = quad.every((a, i) => cross(a, quad[(i + 1) % 4], aim) >= 0);
@@ -112,7 +169,8 @@ function gridCandidates(source, { target = { x: .5, y: .5 }, previous = null } =
 export function detectCorners(source, fallback = true) {
   const candidates = gridCandidates(source);
   // Photo review should select an actual grid before considering a page border.
-  for (const points of candidates) if (checkGrid(source, points).valid) return points;
+  for (const points of candidates) if (checkGrid(source, points, true).valid) return points;
+  for (const points of gridCandidates(source, { contrast: 7 })) if (checkGrid(source, points, true).valid) return points;
   return candidates[0] ?? (fallback ? [{ x: source.width * .08, y: source.height * .08 }, { x: source.width * .92, y: source.height * .08 }, { x: source.width * .92, y: source.height * .92 }, { x: source.width * .08, y: source.height * .92 }] : null);
 }
 
@@ -136,28 +194,32 @@ export function assessFrame(frame, options = {}) {
     if (result.valid) return result;
     nearestFailure ??= result;
   }
+  for (const points of gridCandidates(frame, { ...options, contrast: 7 })) {
+    const result = checkGrid(frame, points);
+    if (result.valid) return result;
+  }
   return nearestFailure ?? { valid: false, message: 'Fit the whole 9 × 9 grid in the frame.', corners: null };
 }
 
-function checkGrid(frame, points) {
+function checkGrid(frame, points, photo = false) {
   const fail = (message, corners = points) => ({ valid: false, message, corners });
   if (!points || !validCorners(points)) return fail('Fit the whole 9 × 9 grid in the frame.');
   const length = Math.min(frame.width, frame.height), pad = length * .01;
-  if (points.some(p => p.x < pad || p.y < pad || p.x > frame.width - pad || p.y > frame.height - pad)) return fail('Move back to include all four corners.');
+  if (!photo && points.some(p => p.x < pad || p.y < pad || p.x > frame.width - pad || p.y > frame.height - pad)) return fail('Move back to include all four corners.');
   const edges = points.map((p, i) => Math.hypot(p.x - points[(i + 1) % 4].x, p.y - points[(i + 1) % 4].y));
-  if (Math.min(...edges) < length * .23 || polygonArea(points) < length ** 2 * .085) return fail('Move closer to the grid.');
+  if (!photo && (Math.min(...edges) < length * .23 || polygonArea(points) < length ** 2 * .085)) return fail('Move closer to the grid.');
   const size = 360, grid = rectify(frame, points, size), ctx = grid.getContext('2d', { willReadFrequently: true }), image = ctx.getImageData(0, 0, size, size);
   const gray = new Float32Array(size * size); let light = 0;
   for (let i = 0; i < gray.length; i++) { gray[i] = image.data[i * 4] * .299 + image.data[i * 4 + 1] * .587 + image.data[i * 4 + 2] * .114; light += gray[i]; }
   light /= gray.length;
-  if (light < 55) return fail('Add more light.');
+  if (!photo && light < 55) return fail('Add more light.');
   let sharp = 0, lapMean = 0, samples = 0;
   for (let y = 4; y < size - 4; y++) for (let x = 4; x < size - 4; x++) {
     const p = y * size + x, lap = gray[p - 1] + gray[p + 1] + gray[p - size] + gray[p + size] - 4 * gray[p];
     sharp += lap * lap; lapMean += lap; samples++;
   }
   const sharpness = sharp / samples - (lapMean / samples) ** 2;
-  if (sharpness < 45) return fail('Hold still and let the camera focus.');
+  if (!photo && sharpness < 45) return fail('Hold still and let the camera focus.');
   const bits = threshold(image, 10, 10);
   function lines(horizontal) {
     let count = 0;
@@ -225,7 +287,7 @@ export function rectify(source, points, size = 900) {
 }
 
 export function extractDigits(grid) {
-  const w = grid.width, bits = threshold(grid.getContext('2d').getImageData(0, 0, w, w), 18, 12), cell = w / 9, result = [];
+  const w = grid.width, image = grid.getContext('2d').getImageData(0, 0, w, w), bits = threshold(image, 18, 10), cell = w / 9, result = [];
   // Paper can bow between the four corners. Follow the nearby grid lines
   // in each cell rather than assuming all nine rows remain perfectly even.
   function boundary(index, band, horizontal) {
@@ -250,7 +312,7 @@ export function extractDigits(grid) {
     const row = Math.floor(i / 9), col = i % 9, margin = Math.round(cell * .07);
     const left = boundary(col, row, false), right = boundary(col + 1, row, false), top = boundary(row, col, true), bottom = boundary(row + 1, col, true);
     const x0 = left + margin, y0 = top + margin, cw = right - left - margin * 2, ch = bottom - top - margin * 2;
-    const seen = new Uint8Array(cw * ch); let largest = [];
+    const seen = new Uint8Array(cw * ch), parts = []; let largest = [];
     for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
       if (seen[y * cw + x] || !bits[(y0 + y) * w + x0 + x]) continue;
       const component = [y * cw + x]; seen[y * cw + x] = 1; let edge = 0;
@@ -262,23 +324,76 @@ export function extractDigits(grid) {
           if (nx >= 0 && nx < cw && ny >= 0 && ny < ch && !seen[q] && bits[(y0 + ny) * w + x0 + nx]) { seen[q] = 1; component.push(q); }
         }
       }
-      if (component.length > largest.length && edge < Math.min(cw, ch) * .4) largest = component;
+      if (edge < Math.min(cw, ch) * .4 && component.length >= cell * cell * .001) {
+        parts.push(component); if (component.length > largest.length) largest = component;
+      }
     }
-    if (largest.length < cell * cell * .012) { result.push(null); continue; }
+    if (largest.length < cell * cell * .005) { result.push(null); continue; }
     let minX = cw, minY = ch, maxX = 0, maxY = 0;
     for (const p of largest) { minX = Math.min(minX, p % cw); maxX = Math.max(maxX, p % cw); minY = Math.min(minY, Math.floor(p / cw)); maxY = Math.max(maxY, Math.floor(p / cw)); }
+    // Keep detached strokes (especially open printed 4s and blurred 5s).
+    // Taking only the largest component used to turn these into other digits.
+    const mainComponent = largest;
+    for (const component of parts) {
+      if (component === mainComponent) continue;
+      let ax = cw, ay = ch, bx = 0, by = 0;
+      for (const p of component) { ax = Math.min(ax, p % cw); bx = Math.max(bx, p % cw); ay = Math.min(ay, Math.floor(p / cw)); by = Math.max(by, Math.floor(p / cw)); }
+      const gapX = Math.max(0, ax - maxX, minX - bx), gapY = Math.max(0, ay - maxY, minY - by);
+      if (Math.hypot(gapX, gapY) < cell * .09 && Math.max(maxX, bx) - Math.min(minX, ax) < cell * .78) {
+        minX = Math.min(minX, ax); maxX = Math.max(maxX, bx); minY = Math.min(minY, ay); maxY = Math.max(maxY, by); largest = largest.concat(component);
+      }
+    }
     if (maxY - minY < cell * .22 || maxX - minX > cell * .78) { result.push(null); continue; }
+    if ((minX + maxX) / 2 < cw * .25 || (minX + maxX) / 2 > cw * .75 || (minY + maxY) / 2 < ch * .2 || (minY + maxY) / 2 > ch * .8) { result.push(null); continue; }
+    if (largest.length < cell * cell * .008 && (maxY - minY < cell * .4 || maxX - minX > cell * .2)) { result.push(null); continue; }
     const glyph = canvas(cw, ch), gc = glyph.getContext('2d'); gc.fillStyle = 'white'; gc.fillRect(0, 0, cw, ch); gc.fillStyle = 'black';
     for (const p of largest) gc.fillRect(p % cw, Math.floor(p / cw), 1, 1);
     const digit = canvas(110), dc = digit.getContext('2d'); dc.fillStyle = 'white'; dc.fillRect(0, 0, 110, 110);
     const height = 70, width = (maxX - minX + 1) / (maxY - minY + 1) * height;
     dc.drawImage(glyph, minX, minY, maxX - minX + 1, maxY - minY + 1, (110 - width) / 2, 20, width, height);
+    const gray = canvas(maxX - minX + 1, maxY - minY + 1), gr = gray.getContext('2d'), crop = gr.createImageData(gray.width, gray.height), histogram = new Uint32Array(256);
+    for (let y = 0; y < gray.height; y++) for (let x = 0; x < gray.width; x++) {
+      const p = ((y0 + minY + y) * w + x0 + minX + x) * 4, value = Math.round(image.data[p] * .299 + image.data[p + 1] * .587 + image.data[p + 2] * .114);
+      histogram[value]++; const q = (y * gray.width + x) * 4; crop.data[q] = value;
+    }
+    let lo = 0, hi = 255, total = 0;
+    for (let value = 0; value < 256; value++) { total += histogram[value]; if (total >= gray.width * gray.height * .04) { lo = value; break; } }
+    total = 0; for (let value = 255; value >= 0; value--) { total += histogram[value]; if (total >= gray.width * gray.height * .1) { hi = value; break; } }
+    digit.contrast = hi - lo;
+    for (let p = 0; p < crop.data.length; p += 4) { const value = Math.max(0, Math.min(255, (crop.data[p] - lo) * 255 / Math.max(1, hi - lo))); crop.data[p] = crop.data[p + 1] = crop.data[p + 2] = value; crop.data[p + 3] = 255; }
+    gr.putImageData(crop, 0, 0);
+    digit.gray = canvas(110); const grayCtx = digit.gray.getContext('2d'); grayCtx.fillStyle = 'white'; grayCtx.fillRect(0, 0, 110, 110); grayCtx.drawImage(gray, (110 - width) / 2, 20, width, height);
     result.push(digit);
   }
-  return result;
+  // Compare contrast with the other clues on the same page. This suppresses
+  // bleed-through on dark print while retaining genuinely faint/coloured print.
+  const contrasts = result.filter(Boolean).map(digit => digit.contrast).sort((a, b) => a - b);
+  const minimum = Math.max(20, (contrasts[Math.floor(contrasts.length * .75)] || 0) * .27);
+  return result.map(digit => digit && digit.contrast >= minimum ? digit : null);
 }
 
 let library;
+function suppressPatternNoise(grid) {
+  const w = grid.width, h = grid.height, image = grid.getContext('2d').getImageData(0, 0, w, h), gray = new Float32Array(w * h), noise = [];
+  for (let p = 0; p < gray.length; p++) gray[p] = image.data[p * 4] * .299 + image.data[p * 4 + 1] * .587 + image.data[p * 4 + 2] * .114;
+  for (let row = 0; row < 9; row++) for (let col = 0; col < 9; col++) {
+    let sum = 0, square = 0, count = 0;
+    for (let y = Math.floor((row + .25) * h / 9); y < (row + .75) * h / 9; y++) for (let x = Math.floor((col + .25) * w / 9); x < (col + .75) * w / 9; x++) { const v = gray[y * w + x]; sum += v; square += v * v; count++; }
+    noise.push(Math.sqrt(Math.max(0, square / count - (sum / count) ** 2)));
+  }
+  noise.sort((a, b) => a - b);
+  // The lower quartile mostly samples blank cells. Screen moiré raises their
+  // variation, while a clean page or naturally blurred print needs no smoothing.
+  if (noise[Math.floor(noise.length / 4)] < 8) return grid;
+  const work = new Float32Array(gray.length);
+  // Five separable binomial passes approximate a Gaussian with sigma 1.6px.
+  for (let pass = 0; pass < 5; pass++) {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const p = y * w + x; work[p] = (gray[x ? p - 1 : p] + 2 * gray[p] + gray[x < w - 1 ? p + 1 : p]) / 4; }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const p = y * w + x; gray[p] = (work[y ? p - w : p] + 2 * work[p] + work[y < h - 1 ? p + w : p]) / 4; }
+  }
+  for (let p = 0; p < gray.length; p++) { image.data[p * 4] = image.data[p * 4 + 1] = image.data[p * 4 + 2] = gray[p]; image.data[p * 4 + 3] = 255; }
+  const output = canvas(w, h); output.getContext('2d').putImageData(image, 0, 0); return output;
+}
 function loadLibrary() {
   return library ??= new Promise((resolve, reject) => {
     const script = document.createElement('script'); script.src = new URL('./vendor/tesseract.min.js', import.meta.url).href;
@@ -288,7 +403,8 @@ function loadLibrary() {
 }
 
 export async function recognize(grid, onProgress, signal) {
-  const digits = extractDigits(grid);
+  grid = suppressPatternNoise(grid);
+  let digits = extractDigits(grid);
   if (!digits.some(Boolean)) throw new Error('No digits found. Check the corners and use a clear, well-lit photo.');
   onProgress(0, 'Loading scanner…'); await loadLibrary(); signal.throwIfAborted();
   const worker = await Tesseract.createWorker('eng', 1, {
@@ -303,17 +419,36 @@ export async function recognize(grid, onProgress, signal) {
   try {
     signal.throwIfAborted();
     await worker.setParameters({ tessedit_char_whitelist: '123456789', tessedit_pageseg_mode: '8', user_defined_dpi: '150' });
+    function rotate(source, turns) {
+      if (!turns) return source;
+      const c = canvas(source.width, source.height), ctx = c.getContext('2d'); ctx.translate(c.width / 2, c.height / 2); ctx.rotate(turns * Math.PI / 2); ctx.drawImage(source, -source.width / 2, -source.height / 2); return c;
+    }
+    const occupied = digits.map((digit, i) => digit ? i : -1).filter(i => i >= 0);
+    const sample = Array.from({ length: Math.min(8, occupied.length) }, (_, i) => occupied[Math.floor(i * occupied.length / Math.min(8, occupied.length))]);
+    const scores = [];
+    onProgress(0, 'Checking orientation…');
+    for (let turns = 0; turns < 4; turns++) {
+      let score = 0;
+      for (const i of sample) { signal.throwIfAborted(); const { data } = await worker.recognize(rotate(digits[i].gray, turns)); if (/^[1-9]$/.test(data.text.trim())) score += data.confidence; }
+      scores.push(score / sample.length);
+    }
+    const best = scores.indexOf(Math.max(...scores)), orientation = scores[best] > scores[0] + 8 ? best : 0;
+    if (orientation) digits = extractDigits(rotate(grid, orientation));
     const board = Array(81).fill(0), uncertain = new Set();
     for (let i = 0; i < 81; i++) {
       signal.throwIfAborted();
       if (digits[i]) {
-        const { data } = await worker.recognize(digits[i]);
+        let { data } = await worker.recognize(digits[i].gray);
+        if (!/^[1-9]$/.test(data.text.trim()) || data.confidence < 75) {
+          const alternate = await worker.recognize(digits[i]);
+          if (/^[1-9]$/.test(alternate.data.text.trim()) && alternate.data.confidence > data.confidence) data = alternate.data;
+        }
         const text = data.text.trim();
         if (/^[1-9]$/.test(text)) board[i] = Number(text);
         if (!board[i] || data.confidence < 70) uncertain.add(i);
       }
       onProgress(i + 1, 'Reading the numbers…');
     }
-    return { board, uncertain };
+    return { board, uncertain, orientation };
   } finally { signal.removeEventListener('abort', stop); if (!signal.aborted) await worker.terminate(); }
 }

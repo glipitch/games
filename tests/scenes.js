@@ -39,6 +39,9 @@ export function makeScenes(base64) {
       scenes.two = scene(pair); scenes.two.captureData = scene(pair, false, 1280).data;
       scenes.clippedNeighbor = scene([{ x: 220, y: 400, width: 250, angle: 20 }, { x: 650, y: 150, width: 420, second: true }]);
       scenes.pageBorder = scene([{ x: 320, y: 320, width: 360, angle: -20 }], true);
+      scenes.touchingDiagram = scene([{ x: 560, y: 130, width: 300, angle: 18, second: true }, { x: 320, y: 380, width: 400, angle: -2 }]);
+      // The foreground puzzle is drawn last over a clipped background diagram.
+      scenes.touchingDiagram.corners.reverse();
       resolve(scenes);
     };
     image.src = 'data:image/png;base64,' + base64;

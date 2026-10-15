@@ -45,6 +45,14 @@ const fixture = await page.evaluate(() => {
   return c.toDataURL('image/png').split(',')[1];
 });
 await writeFile('test-results/printed-puzzle.png', Buffer.from(fixture, 'base64'));
+// Use a conflicting but visually complete puzzle for manual camera checks, so
+// automatic success does not race the fallback controls being exercised.
+const cameraFixture = await page.evaluate(async data => {
+  const image = new Image(); image.src = 'data:image/png;base64,' + data; await image.decode();
+  const c = Object.assign(document.createElement('canvas'), { width: 1000, height: 1000 }), ctx = c.getContext('2d'); ctx.drawImage(image, 0, 0);
+  ctx.fillStyle = 'white'; ctx.fillRect(175, 65, 50, 70); ctx.fillStyle = '#222'; ctx.font = '56px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('5', 200, 100);
+  return c.toDataURL().split(',')[1];
+}, fixture);
 // Supply actual changing video frames to the camera pipeline, not just a
 // mocked detector: blank -> valid -> cropped -> blurred -> valid -> capture.
 await page.evaluate(() => {
@@ -58,7 +66,7 @@ await page.evaluate(() => {
 await page.getByRole('button', { name: 'Scan puzzle', exact: true }).click();
 await page.waitForFunction(() => document.getElementById('scan-status').textContent.includes('9 × 9'));
 assert.equal(await page.locator('#capture').isDisabled(), true);
-async function cameraImage(mode = 'valid', data = fixture) {
+async function cameraImage(mode = 'valid', data = cameraFixture) {
   await page.evaluate(async ({ data, mode }) => {
     const image = new Image(); image.src = 'data:image/png;base64,' + data; await image.decode();
     const ctx = window.testCamera.getContext('2d'); ctx.fillStyle = 'white'; ctx.fillRect(0, 0, 960, 960);
@@ -68,7 +76,7 @@ async function cameraImage(mode = 'valid', data = fixture) {
   }, { data, mode });
 }
 await cameraImage(); await page.waitForFunction(() => !document.getElementById('capture').disabled);
-assert.match(await page.locator('#scan-status').innerText(), /Grid ready/);
+assert.match(await page.locator('#scan-status').innerText(), /Grid ready|Reading/);
 await page.screenshot({ path: 'test-results/camera-ready.png', fullPage: true });
 await cameraImage('cropped'); await page.waitForFunction(() => document.getElementById('capture').disabled);
 await cameraImage(); await page.waitForFunction(() => !document.getElementById('capture').disabled);
@@ -84,7 +92,7 @@ await page.getByRole('button', { name: 'Close scanner' }).click();
 await page.setViewportSize({ width: 1440, height: 1000 });
 const scenes = await page.evaluate(async data => {
   const { makeScenes } = await import('./tests/scenes.js'); return makeScenes(data);
-}, fixture);
+}, cameraFixture);
 const angles = await page.evaluate(async scenes => {
   const { assessFrame, detectCorners } = await import('./vision.js'), results = {};
   for (const [name, scene] of Object.entries(scenes)) {
@@ -123,7 +131,7 @@ await page.getByRole('button', { name: 'Take photo' }).click();
 for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Rotate', exact: false }).click();
 await page.getByRole('button', { name: 'Read grid' }).click();
 await page.waitForFunction(() => !document.getElementById('scan-dialog').open || !document.getElementById('read').disabled, null, { timeout: 180000 });
-const otherPuzzle = [...'530070000600195000098000060800060003400803001700020006060000280000419005000080079'].map(n => n === '0' ? 0 : Number(n) % 9 + 1).join('');
+const otherPuzzle = '4' + [...'530070000600195000098000060800060003400803001700020006060000280000419005000080079'].map(n => n === '0' ? 0 : Number(n) % 9 + 1).join('').slice(1);
 assert.equal(await page.locator('.cell').evaluateAll(cells => cells.map(c => c.value || '0').join('')), otherPuzzle, 'capture and rotation keep the chosen grid');
 const quality = await page.evaluate(async () => {
   const { assessFrame } = await import('./vision.js');

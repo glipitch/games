@@ -10,7 +10,7 @@ export function makeScenes(base64) {
       ctx.fillStyle = 'white'; ctx.fillRect(0, 0, 900, 900); ctx.strokeStyle = '#222';
       for (let i = 0; i <= 9; i++) { ctx.lineWidth = i % 3 === 0 ? 5 : 2; ctx.beginPath(); ctx.moveTo(i * 100, 0); ctx.lineTo(i * 100, 900); ctx.moveTo(0, i * 100); ctx.lineTo(900, i * 100); ctx.stroke(); }
       ctx.font = '56px Arial'; ctx.fillStyle = '#222'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      [...'530070000600195000098000060800060003400803001700020006060000280000419005000080079'].forEach((n, i) => { if (n !== '0') ctx.fillText(Number(n) % 9 + 1, 50 + i % 9 * 100, 50 + Math.floor(i / 9) * 100); });
+      [...'530070000600195000098000060800060003400803001700020006060000280000419005000080079'].forEach((n, i) => { if (n !== '0') ctx.fillText(i === 0 ? 4 : Number(n) % 9 + 1, 50 + i % 9 * 100, 50 + Math.floor(i / 9) * 100); });
       const alternate = ctx.getImageData(0, 0, 900, 900);
       function scene(boards, border = false, resolution = 640) {
         const c = Object.assign(document.createElement('canvas'), { width: resolution, height: resolution }), dc = c.getContext('2d');

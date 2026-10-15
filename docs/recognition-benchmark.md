@@ -2,6 +2,8 @@
 
 Regression measurements using real photographs, alongside the generated browser fixtures. These datasets were used during development; the results measure regression performance on these cases.
 
+The original 45-photo comparison below is retained. The default test suite now includes these photos plus 20 additional labelled photos, enforces accuracy regressions, and measures automatic eligibility: [current 65-photo checks and limitations](automatic-recognition.md).
+
 ## Sources
 
 - [Baptiste Wicht and Jean Hennebert's sudoku dataset](https://github.com/wichtounet/sudoku_dataset): all 40 photographs in `v2_test`, with cell labels and annotated corners. Revision `0db6de036b80b4e8e4574abe6e15026331bd5c2c`. Images and labels are CC-BY-4.0; see the upstream attribution and research references.

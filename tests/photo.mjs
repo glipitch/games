@@ -38,15 +38,25 @@ try {
     }, { data: (await readFile(file)).toString('base64'), crop });
     console.log('Camera precheck:', preview.message, JSON.stringify(preview.corners));
     await page.locator('#camera').click();
-    try { await page.waitForFunction(() => !document.getElementById('capture').disabled, null, { timeout: 10000 }); }
-    catch {
-      const state = await page.locator('#video').evaluate(v => ({ width: v.videoWidth, height: v.videoHeight, ready: v.readyState, paused: v.paused, stream: v.srcObject?.active, tracks: v.srcObject?.getTracks().map(t => t.readyState) }));
-      throw new Error('Camera capture blocked: ' + await page.locator('#scan-status').textContent() + ' ' + JSON.stringify(state));
+    if (process.env.TEST_AUTOMATIC === '1') {
+      const start = Date.now();
+      try { await page.waitForFunction(() => !document.getElementById('scan-dialog').open, null, { timeout: 20000 }); }
+      catch (error) { console.error(await page.locator('#scan-status').textContent()); throw error; }
+      assert.equal(await page.locator('#status').textContent(), 'Solved.');
+      await page.locator('#undo').click();
+      assert.equal(await page.locator('.cell').evaluateAll(cells => cells.map(cell => cell.value || '0').join('')), expected);
+      console.log(`Automatic camera solve: all 81 original cells correct (${Date.now() - start} ms).`);
+    } else {
+      try { await page.waitForFunction(() => !document.getElementById('capture').disabled, null, { timeout: 10000 }); }
+      catch {
+        const state = await page.locator('#video').evaluate(v => ({ width: v.videoWidth, height: v.videoHeight, ready: v.readyState, paused: v.paused, stream: v.srcObject?.active, tracks: v.srcObject?.getTracks().map(t => t.readyState) }));
+        throw new Error('Camera capture blocked: ' + await page.locator('#scan-status').textContent() + ' ' + JSON.stringify(state));
+      }
+      await page.locator('#capture').click();
+      await page.locator('#crop').screenshot({ path: 'test-results/reported-camera-crop.png' });
+      await readAndCheck();
+      console.log('Camera framing and capture: all 81 cells correct; puzzle solved.');
     }
-    await page.locator('#capture').click();
-    await page.locator('#crop').screenshot({ path: 'test-results/reported-camera-crop.png' });
-    await readAndCheck();
-    console.log('Camera framing and capture: all 81 cells correct; puzzle solved.');
   }
   assert.deepEqual(external, []);
 } finally { await browser.close(); }

@@ -1,0 +1,33 @@
+[
+  {
+    "mode": "blank",
+    "rejected": true
+  },
+  {
+    "mode": "blurred",
+    "rejected": true
+  },
+  {
+    "mode": "cropped",
+    "rejected": true
+  },
+  {
+    "mode": "conflict",
+    "rejected": true
+  },
+  {
+    "mode": "captured puzzle, then blank paused live view",
+    "solved": true,
+    "elapsedMs": 1296
+  },
+  {
+    "mode": "turned",
+    "solved": true,
+    "elapsedMs": 1622
+  },
+  {
+    "mode": "photograph",
+    "solved": true,
+    "elapsedMs": 888
+  }
+]

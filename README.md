@@ -2,7 +2,7 @@
 
 A minimal camera-based sudoku solver for desktop and mobile browsers.
 
-Scan a printed puzzle with the camera or upload a photo. Adjust the four grid corners, read the numbers, correct anything that needs attention, and solve. You can also type clues or paste an 81-character puzzle using `0` or `.` for empty cells.
+Point the camera at a printed puzzle. Photos are captured continuously and processed in the background; the first verified success solves automatically. Moving the camera does not cancel photos already taken. If the scan is uncertain, take a photo, adjust the four grid corners, read the numbers, correct anything that needs attention, and solve. You can also upload a photo, type clues or paste an 81-character puzzle using `0` or `.` for empty cells.
 
 - Responsive layout and touch-friendly corner adjustment.
 - Compact controls and a live camera outline that turns green when the complete grid is clear and steady. Capture stays disabled for missing, clipped, blurred, or unsteady grids. This checks framing and image quality; digit accuracy and puzzle solvability are checked after scanning.
@@ -12,6 +12,7 @@ Scan a printed puzzle with the camera or upload a photo. Adjust the four grid co
 - Suppresses screen stripe patterns before OCR when background noise is detected.
 - Browser-only OCR; photos are never uploaded or saved by the app.
 - Warms the scanner while framing a photo and reuses its engine and orientation samples for faster reading.
+- Automatic solving checks a captured photo's quality, agreement between OCR views for every clue, and a unique solution. Captures are processed in order with at most two waiting photos. It never changes clues to force a solution. Back to puzzle restores the scanned clues.
 - Highlights duplicate clues and uncertain scan results.
 - Detects puzzles with no solution or more than one solution.
 - Keyboard arrows to navigate; Delete to clear; Enter to solve.
@@ -34,17 +35,17 @@ This is a static site with no server, API keys, analytics, or third-party runtim
 
 ## Checks
 
-```sh
-node --test tests/solver.test.js
-```
+`pnpm test` starts its own local server and runs unit, browser, cancellation, automatic-camera, and dataset regression checks. Install development dependencies and a Playwright browser first. `pnpm test:unit` runs only the fast unit tests. The same full suite runs in GitHub Actions on every push and pull request.
 
 For browser checks, install development dependencies with `pnpm install`, install Chromium with `pnpm exec playwright install chromium`, and start the local server. Then run `pnpm test:browser`. Set `PLAYWRIGHT_CHANNEL=chrome` to use an installed Google Chrome instead, or `TEST_URL` to check a deployed site. Browser checks cover solving, correction, desktop and mobile layout, camera readiness and lifecycle with a changing video feed, rejection of cropped/blurred/incorrect grids, printed and photographed puzzle recognition, and absence of external network requests.
 
-`pnpm test:datasets` downloads and checks 45 real photographs from two pinned public datasets. It requires `tar` for the first download. Images are cached under the ignored `test-results/datasets/` directory. See [the benchmark results and limitations](docs/recognition-benchmark.md).
+`pnpm test:datasets` downloads and checks 65 real photographs from two pinned public datasets: the original 45 plus 20 additional labelled photos selected before evaluating automatic recognition. It requires `tar` for the first download. Images are cached under the ignored `test-results/datasets/` directory. It fails on any previously correct cell becoming wrong, loss of existing grid detection or camera acceptance, loss of a correct occupancy map or verified automatic candidate, or a wrong automatic solution on a labelled photo. See [the benchmark results and limitations](docs/recognition-benchmark.md) and [automatic recognition checks](docs/automatic-recognition.md).
 
 `pnpm test:photo` checks a local photo against `TEST_EXPECTED` (81 digits, `0` for blanks), with its path in `TEST_PHOTO`. Optional `TEST_CAMERA_CROP=x,y,width,height` also feeds that image region through the camera capture flow. These tests do not upload the photo.
 
 `pnpm test:recognition` checks cancellation and immediate retry during scanner startup, orientation detection, and digit reading, plus worker reuse across all four rotations. `pnpm test:performance` records reading time, OCR call counts, initialization time, and solving time for three photographs. See [timing measurements](docs/performance.md).
+
+`pnpm test:automatic` supplies a changing camera feed and tests capture while OCR is busy, capture order and queue limits, solving an already taken photo after the live view changes or pauses, sideways puzzles, a photographed puzzle, cancellation, and rejection of blank, clipped, blurred and conflicting grids. No capture/read/solve buttons are used for successful automatic scans.
 
 ## Credits
 

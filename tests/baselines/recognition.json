@@ -1,0 +1,433 @@
+{
+  "revision": "12da1d4b9b605f0640da3e0be9ca8913cf021310",
+  "sources": {
+    "wicht": {
+      "repository": "wichtounet/sudoku_dataset",
+      "revision": "0db6de036b80b4e8e4574abe6e15026331bd5c2c",
+      "license": "CC-BY-4.0",
+      "split": "v2_test (all 40 photos)"
+    },
+    "armand": {
+      "repository": "ArmandNM/sudoku-vision",
+      "revision": "9dbb391cf54784a3a76d43a237c6a2d3a3f5007d",
+      "split": "all five classic photos; three have occupancy labels"
+    },
+    "holdout": {
+      "repository": "wichtounet/sudoku_dataset",
+      "revision": "0db6de036b80b4e8e4574abe6e15026331bd5c2c",
+      "license": "CC-BY-4.0",
+      "split": "20 additional annotated photos, evenly selected by filename before evaluating automatic recognition; tests/fixtures/holdout.json"
+    }
+  },
+  "cases": [
+    {
+      "id": "wicht/image18.jpg",
+      "board": "000106503000500400009027080600400000840000056000002007030270900007001000904603000",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image25.jpg",
+      "board": "000000000000000000000000000000000000000000000000000000000090000000000000000000000",
+      "gridMatched": false,
+      "ready": false
+    },
+    {
+      "id": "wicht/image31.jpg",
+      "board": "000009000200083045070000003100807930089500000000000070000964000420008069000000084",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "wicht/image32.jpg",
+      "board": "000009000200083000078000003000807930089500000000000070000964000027008069000000183",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "wicht/image34.jpg",
+      "board": "700000000021405080000029006002306090800000500000050000900003002000000700060010300",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "wicht/image35.jpg",
+      "board": "000000510000000900000000003000000000000000000000000000000000010000000008000001000",
+      "gridMatched": false,
+      "ready": false
+    },
+    {
+      "id": "wicht/image39.jpg",
+      "board": "001000000001000000000029000000100090000000000000050000000003002000000708000010400",
+      "gridMatched": false,
+      "ready": false
+    },
+    {
+      "id": "wicht/image46.jpg",
+      "board": "000827940054310000800060001000601008078903560600502000400030007000096180086154000",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image47.jpg",
+      "board": "100000080026501000300809000000090710002000900015070000000402009000607820080000003",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image50.jpg",
+      "board": "903000002060490103000000000000000900300000000080002430170509300000000752000367000",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "wicht/image51.jpg",
+      "board": "530070008000000925000020170001200840040000209000407000980061702075000381100005003",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "wicht/image73.jpg",
+      "board": "000000780000000070004000000000000000000000000000010000000000000000000000000000000",
+      "gridMatched": false,
+      "ready": false
+    },
+    {
+      "id": "wicht/image83.jpg",
+      "board": "700000000021405080000029006012306090040000500000050000900003002000000708060010400",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "wicht/image85.jpg",
+      "board": "000009000200083045078000003000807930089500000000000070000964000427008069000000180",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "wicht/image91.jpg",
+      "board": "100000060026501000300809000000090710002000900015070000000402009000607820080000003",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image114.jpg",
+      "board": "509000020200030005000590400407003000008400700000080042365170280890625301000000000",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image117.jpg",
+      "board": "509000020200030005000590400407003000008400700000080102365170280890620301000000000",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image120.jpg",
+      "board": "850046002000509030000000000030800400000000120009007050042000600580073009000600000",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "wicht/image126.jpg",
+      "board": "301085004000300000089000020000000000702058009000460100050020600000000340007900080",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "wicht/image140.jpg",
+      "board": "700000000021405080000029006012306090840000500000050000900003002000000708060010400",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "wicht/image148.jpg",
+      "board": "400760000107030008520001000001600000008000300000005100000100062800090701000027003",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image153.jpg",
+      "board": "076098000020300907050210000100000703008103500705000008600059030504001070000460890",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image166.jpg",
+      "board": "830007900000032000097060000008000100726308549005000800000040750000280000003600010",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image175.jpg",
+      "board": "001030008000060500900000210830050010605093000000100805000000900103005006020000380",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "wicht/image176.jpg",
+      "board": "530070008000000925000020170001200840040000209000407000900061702075000381100005004",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "wicht/image179.jpg",
+      "board": "530070008000004925000020170001200840040000209000407000980061702075000381100005004",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "wicht/image193.jpg",
+      "board": "700000000021405080000029006012306090840000500000050000900003002000000708060010400",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "wicht/image205.jpg",
+      "board": "802300000060200504953010000390000001601003080000021000010050800230780906486000052",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image208.jpg",
+      "board": "030020040109706308000103000801000402060000070307000605000204000000305901000090000",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "wicht/image210.jpg",
+      "board": "906000308000070000003000500100802003000050000200706004005000800000020000608000401",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image211.jpg",
+      "board": "090080040700309008005000300070000050800020006010000020009000700600201005050030080",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image1005.jpg",
+      "board": "080007009100000600000300080002030007000214000500090400050003000004000003600100020",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image1009.jpg",
+      "board": "200008006080020010006150200800000600021000850005000003003049100070060040900700002",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image1019.jpg",
+      "board": "000010000000503000023749510930000025041060390750000064089236740000104000000080000",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image1024.jpg",
+      "board": "002030600000405000804000702020000080300000006060000010508000107000703000001060400",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image1041.jpg",
+      "board": "208009704006007100030004020872000000000000000000000951020100040004700600601900308",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image1072.jpg",
+      "board": "607408103000000000804107902901030805000509000206080309503804206000000000409206507",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image1073.jpg",
+      "board": "700091002060200090001060500800000020206040305050000008005080900080004050300650007",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image1080.jpg",
+      "board": "030000208200010960780000000300240080000793000010085003000000026067030004804000050",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "wicht/image1088.jpg",
+      "board": "900010002030004910070250000060000800703080601009000050000092070057800060400070003",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "armand/train/classic/1.jpg",
+      "board": "004002570700400000030005009090108042000000008070000150800560004000040000052009600",
+      "gridMatched": null,
+      "ready": true,
+      "occupancyExact": true
+    },
+    {
+      "id": "armand/train/classic/4.jpg",
+      "board": "805901000109070000070080061406000020001200000000347100200010049000000000080409503",
+      "gridMatched": null,
+      "ready": true,
+      "occupancyExact": true
+    },
+    {
+      "id": "armand/train/classic/9.jpg",
+      "board": "090000300200608570000030041062100000031080096000002000800007102000010700050000080",
+      "gridMatched": null,
+      "ready": true,
+      "occupancyExact": true
+    },
+    {
+      "id": "armand/test/classic/3.jpg",
+      "board": "800050030030020070004001900000600000746000528000002000005900700010080040080060000",
+      "gridMatched": null,
+      "ready": true
+    },
+    {
+      "id": "armand/test/classic/25.jpg",
+      "board": "005400007006100003000007900000300090002000508067040100024038005600070089709500000",
+      "gridMatched": null,
+      "ready": true
+    },
+    {
+      "id": "holdout/image1.jpg",
+      "board": "000700080090003100006805070020600049000200050008040007000900030370000006105004000",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "holdout/image17.jpg",
+      "board": "503060000070050804689100000107006030096000001000501000065320907010800300730000085",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "holdout/image28.jpg",
+      "board": "000106503000500400009027080600400000840000056000002007030270900007001000904603000",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "holdout/image42.jpg",
+      "board": "000000000020405080000029006002306090840000500000050000900003002000000708060010300",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "holdout/image70.jpg",
+      "board": "000070008005006000600008003000090011000020005000000600000050001080000090010010080",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "holdout/image81.jpg",
+      "board": "700000000021405080000029006012306090840000500000050000900003002000000708060010400",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "holdout/image96.jpg",
+      "board": "001030008001060500900000270830050010605093000000100805000000900103005003020000380",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "holdout/image105.jpg",
+      "board": "903000002060490103000100000000000200301004000080702430078509300000000759000367000",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "holdout/image116.jpg",
+      "board": "509000020200030005000590400407003000008400700000080142365170280890625301000000000",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "holdout/image134.jpg",
+      "board": "000009000200083045078000003100807930089500000000000070000964000427008069000000184",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "holdout/image155.jpg",
+      "board": "795000000000020030080000705302705014008906200940203506804000060020060000000000158",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "holdout/image163.jpg",
+      "board": "000032090009000006000980030503007001700213004600400308030071000400000500020590003",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "holdout/image172.jpg",
+      "board": "000010023804070006500400700000006200010020080008900000007001002100030609380040000",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "holdout/image183.jpg",
+      "board": "000700080090003100006805070020600049000200050008040007000900030370000006105004000",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "holdout/image194.jpg",
+      "board": "700000000021405080000029006012306090840000500000050000900003002000000708060010400",
+      "gridMatched": true,
+      "ready": false
+    },
+    {
+      "id": "holdout/image203.jpg",
+      "board": "046080000901300000720506000038000900100000003002000680000607051000009704000010820",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "holdout/image1006.jpg",
+      "board": "095800000200300400700020030480000000002000500000000016040030007006004005000009260",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "holdout/image1036.jpg",
+      "board": "000312000007000200030407080502000701900000006106000803020801060004000500000529000",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "holdout/image1050.jpg",
+      "board": "000050000005706300080090040040010030908000501010070090060030080007609200000040000",
+      "gridMatched": true,
+      "ready": true
+    },
+    {
+      "id": "holdout/image1076.jpg",
+      "board": "000012635135804000006000800009000010010590020460081590700230004200000100603109082",
+      "gridMatched": true,
+      "ready": true
+    }
+  ],
+  "automaticEligible": [
+    "wicht/image205.jpg",
+    "wicht/image210.jpg",
+    "wicht/image211.jpg",
+    "wicht/image1005.jpg",
+    "wicht/image1024.jpg",
+    "wicht/image1073.jpg",
+    "wicht/image1080.jpg",
+    "armand/train/classic/1.jpg",
+    "armand/train/classic/4.jpg",
+    "armand/train/classic/9.jpg",
+    "armand/test/classic/25.jpg",
+    "holdout/image203.jpg",
+    "holdout/image1006.jpg",
+    "holdout/image1076.jpg"
+  ]
+}

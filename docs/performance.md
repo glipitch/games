@@ -1,5 +1,7 @@
 # sudoku performance
 
+These measurements describe the manual read optimization. The camera also now continuously captures and processes photos in the background with additional verification; see [automatic recognition and camera timings](automatic-recognition.md).
+
 Measured against revision `0694432`, before the scanner reuse and recognition optimizations. Chrome on the same desktop, local server, fresh browser context per version, two consecutive reads per photograph. Chrome's main thread was throttled by 4; this does not emulate a particular phone or throttle the OCR worker. No network throttling. These are small regression measurements, not device-wide speed guarantees.
 
 | Photograph | Before, mean read | After, mean read | Reduction | OCR calls before → after |

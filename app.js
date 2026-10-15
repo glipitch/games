@@ -1,5 +1,6 @@
 import { conflicts, solve } from './solver.js';
 import { detectCorners, rectify, recognize, assessFrame, prepareScanner } from './vision.js';
+import { automaticCandidate, SnapshotQueue } from './automatic.js';
 
 const $ = id => document.getElementById(id);
 let board = Array(81).fill(0), original = null, uncertain = new Set(), selected = -1;
@@ -51,16 +52,18 @@ const dialog = $('scan-dialog'), video = $('video'), crop = $('crop');
 let stream = null, source = null, corners = null, dragging = -1, controller = null, session = 0;
 let cameraTimer = null, cameraReady = false, stableFrames = 0, previousCorners = null;
 let cameraTarget = { x: .5, y: .5 };
-const stopCamera = () => { clearTimeout(cameraTimer); cameraTimer = null; cameraReady = false; stableFrames = 0; previousCorners = null; stream?.getTracks().forEach(track => track.stop()); stream = null; video.srcObject = null; };
+const photos = new SnapshotQueue(2);
+let automaticController = null, lastSnapshotFrame = -1, nextSnapshot = 0, snapshotId = 0;
+const stopCamera = () => { automaticController?.abort(); automaticController = null; photos.clear(); clearTimeout(cameraTimer); cameraTimer = null; cameraReady = false; stableFrames = 0; previousCorners = null; stream?.getTracks().forEach(track => track.stop()); stream = null; video.srcObject = null; };
 function closeScanner() { session++; stopCamera(); controller?.abort(); controller = null; source = null; corners = null; if (dialog.open) dialog.close(); }
 dialog.addEventListener('cancel', e => { e.preventDefault(); closeScanner(); });
-dialog.addEventListener('close', () => { stopCamera(); controller?.abort(); });
+dialog.addEventListener('close', () => { if (!dialog.open) { stopCamera(); controller?.abort(); } });
 $('close-scan').addEventListener('click', closeScanner);
 document.addEventListener('visibilitychange', () => { if (document.hidden && stream) closeScanner(); });
 function resetScanner(photoMode = false) {
   if (!dialog.open) dialog.showModal();
   $('scan-title').textContent = photoMode ? 'Align the grid' : 'Scan puzzle';
-  $('scan-help').textContent = photoMode ? 'Drag the four corners to the outside edges of the grid.' : 'Centre a puzzle, or tap to choose it.';
+  $('scan-help').textContent = photoMode ? 'Drag the four corners to the outside edges of the grid.' : 'Point at a puzzle. Tap to choose.';
   video.hidden = photoMode; $('camera-guide').hidden = photoMode; crop.hidden = !photoMode;
   $('viewfinder').classList.toggle('camera-mode', !photoMode);
   $('crop-tools').hidden = !photoMode; $('capture').hidden = photoMode; $('capture').disabled = true;
@@ -72,6 +75,7 @@ $('camera').addEventListener('click', async () => {
   void prepareScanner().catch(() => {});
   if (!navigator.mediaDevices?.getUserMedia) { $('native-camera').click(); return; }
   const request = ++session; resetScanner(); $('scan-status').textContent = 'Opening camera…';
+  nextSnapshot = 0; lastSnapshotFrame = -1;
   try {
     const media = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1920 } } });
     if (request !== session || !dialog.open) { media.getTracks().forEach(t => t.stop()); return; }
@@ -115,10 +119,34 @@ function checkCamera(request) {
     stableFrames = result.valid ? (steady ? stableFrames + 1 : 1) : 0;
     previousCorners = result.valid ? result.corners : null; cameraReady = stableFrames >= 3;
     $('capture').disabled = !cameraReady;
-    $('scan-status').textContent = result.valid && !cameraReady ? 'Hold steady…' : result.message;
+    $('scan-status').textContent = automaticController ? 'Reading…' : result.valid && !cameraReady ? 'Hold steady…' : result.message;
     drawGuide(result.corners, cameraReady, frame.width);
+    if (result.valid && photos.length < photos.capacity && video.currentTime > lastSnapshotFrame && performance.now() >= nextSnapshot) {
+      const photo = cameraFrame(1600), scale = photo.width / frame.width;
+      photos.push({ id: ++snapshotId, photo, corners: result.corners.map(p => ({ x: p.x * scale, y: p.y * scale })) });
+      lastSnapshotFrame = video.currentTime; nextSnapshot = performance.now() + 350;
+      void processPhotos(request);
+    }
   }
   cameraTimer = setTimeout(() => checkCamera(request), 350);
+}
+async function processPhotos(request) {
+  if (automaticController) return;
+  const current = new AbortController(); automaticController = current;
+  $('scan-status').textContent = 'Reading…';
+  try {
+    while (photos.length && !current.signal.aborted && request === session) {
+      const snapshot = photos.take();
+      try {
+        const result = await recognize(rectify(snapshot.photo, snapshot.corners), () => {}, current.signal, { verify: true });
+        if (current.signal.aborted || request !== session) return;
+        const accepted = automaticCandidate(result);
+        if (accepted) {
+          original = accepted.board; board = accepted.solution; uncertain.clear(); paint(); closeScanner(); message('Solved.'); return;
+        }
+      } catch (error) { if (current.signal.aborted || request !== session) return; }
+    }
+  } finally { if (automaticController === current) automaticController = null; }
 }
 $('viewfinder').addEventListener('click', e => {
   if (video.hidden || !stream) return;

@@ -1,3 +1,5 @@
+import { solve } from './solver.js';
+
 const canvas = (w, h = w) => Object.assign(document.createElement('canvas'), { width: w, height: h });
 
 export function threshold(image, radius = 12, offset = 14) {
@@ -425,7 +427,7 @@ function scannerEntry() {
 // Start only after scan intent, overlapping download/initialization with framing.
 export function prepareScanner() { return scannerEntry().promise.then(() => {}); }
 
-export async function recognize(grid, onProgress, signal) {
+export async function recognize(grid, onProgress, signal, { verify = false } = {}) {
   signal.throwIfAborted();
   const entry = scannerEntry();
   if (entry.busy) throw new Error('The scanner is already reading a photo.');
@@ -472,23 +474,45 @@ export async function recognize(grid, onProgress, signal) {
     }
     const best = scores.indexOf(Math.max(...scores)), orientation = scores[best] > scores[0] + 8 ? best : 0;
     if (orientation) digits = extractDigits(rotate(grid, orientation));
-    const board = Array(81).fill(0), uncertain = new Set();
+    const board = Array(81).fill(0), uncertain = new Set(), confidence = Array(81).fill(0), verified = Array(81).fill(false);
+    const readings = [];
     for (let i = 0; i < 81; i++) {
       signal.throwIfAborted();
       if (digits[i]) {
         let data = !orientation && upright.get(i) || (await readDigit(digits[i].gray)).data;
+        const gray = data; let binary;
         if (!/^[1-9]$/.test(data.text.trim()) || data.confidence < 75) {
           const alternate = await readDigit(digits[i]);
+          binary = alternate.data;
           if (/^[1-9]$/.test(alternate.data.text.trim()) && alternate.data.confidence > data.confidence) data = alternate.data;
         }
         const text = data.text.trim();
-        if (/^[1-9]$/.test(text)) board[i] = Number(text);
+        if (/^[1-9]$/.test(text)) { board[i] = Number(text); confidence[i] = data.confidence; }
         if (!board[i] || data.confidence < 70) uncertain.add(i);
+        if (verify) readings[i] = { gray, binary };
       }
       onProgress(i + 1, 'Reading the numbers…');
     }
+    const detected = digits.filter(Boolean).length;
+    // Spend verification time only on a complete, confident, uniquely solvable
+    // read. Extra views validate its clues; they never change them to fit a solve.
+    if (verify && !uncertain.size && detected >= 17 && board.filter(Boolean).length === detected && board.every((n, i) => !n || confidence[i] >= 75) && solve(board).kind === 'unique') {
+      onProgress(81, 'Checking the numbers…');
+      for (let i = 0; i < 81; i++) if (digits[i]) {
+        signal.throwIfAborted();
+        const views = [readings[i].gray, readings[i].binary ?? (await readDigit(digits[i])).data];
+        const agrees = data => data.text.trim() === String(board[i]) && data.confidence >= 75;
+        // Thresholding can merge or detach a stroke. A resampled grayscale view
+        // gives a second check without relying on that binary segmentation.
+        if (views.filter(agrees).length < 2) {
+          const scaled = canvas(132); scaled.getContext('2d').drawImage(digits[i].gray, 0, 0, 132, 132);
+          views.push((await readDigit(scaled)).data);
+        }
+        verified[i] = views.filter(agrees).length >= 2;
+      }
+    }
     finished = true;
-    return { board, uncertain, orientation };
+    return { board, uncertain, orientation, confidence, verified, detected };
   } finally {
     signal.removeEventListener('abort', abort); entry.busy = false;
     if (!finished && !signal.aborted) stop();

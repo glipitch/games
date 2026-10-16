@@ -13,12 +13,14 @@ try {
   async function readAndCheck() {
     await page.locator('#read').click();
     await page.waitForFunction(() => !document.getElementById('scan-dialog').open || !document.getElementById('read').disabled, null, { timeout: 180000 });
+    if (await page.locator('#undo').isVisible()) await page.locator('#undo').click();
     assert.equal(await page.locator('.cell').evaluateAll(cells => cells.map(cell => cell.value || '0').join('')), expected);
     await page.locator('#solve').click(); assert.equal(await page.locator('#status').textContent(), 'Solved.');
   }
   await page.locator('#photo').setInputFiles(file); await readAndCheck();
   console.log('Photo import: all 81 cells correct; puzzle solved.');
   if (process.env.TEST_CAMERA_CROP) {
+    await page.locator('#clear').click();
     const crop = process.env.TEST_CAMERA_CROP.split(',').map(Number);
     if (crop.length !== 4 || crop.some(n => !Number.isFinite(n))) throw new Error('TEST_CAMERA_CROP must be x,y,width,height in original pixels.');
     const preview = await page.evaluate(async ({ data, crop }) => {

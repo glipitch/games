@@ -2,7 +2,7 @@
 
 A minimal camera-based sudoku solver for desktop and mobile browsers.
 
-Point the camera at a printed puzzle. Photos are captured continuously and processed in the background; the first verified success solves automatically. Moving the camera does not cancel photos already taken. If the scan is uncertain, take a photo, adjust the four grid corners, read the numbers, correct anything that needs attention, and solve. You can also upload a photo, type clues or paste an 81-character puzzle using `0` or `.` for empty cells.
+Start with **Scan puzzle** or **Upload photo**. The grid appears only after a scan. Camera photos are captured continuously and processed in the background; the first verified success shows the solution. Moving the camera does not cancel photos already taken. For uploaded or manually captured photos, adjust the four grid corners and choose **Solve photo**. Verified scans go straight to the solution; uncertain scans show the numbers for correction before solving. **Start again** returns to the opening screen. You can also paste an 81-character puzzle using `0` or `.` for empty cells, then edit its clues.
 
 - Responsive layout and touch-friendly corner adjustment.
 - Compact controls and a live camera outline that turns green when the complete grid is clear and steady. Capture stays disabled for missing, clipped, blurred, or unsteady grids. This checks framing and image quality; digit accuracy and puzzle solvability are checked after scanning.
@@ -25,7 +25,7 @@ Requires Node.js 22 or newer for the development scripts. No install or build is
 node scripts/serve.mjs
 ```
 
-Open <http://127.0.0.1:4173>. The website itself needs only a modern browser. Camera access requires HTTPS or localhost and browser permission. If a camera is unavailable, upload a photo instead. Clear, well-lit photos of printed digits work best; always review the scan before solving. Handwriting, pencil marks, glare, and heavily curved paper may need manual corrections.
+Open <http://127.0.0.1:4173>. The website itself needs only a modern browser. Camera access requires HTTPS or localhost and browser permission. If a camera is unavailable, upload a photo instead. Clear, well-lit photos of printed digits work best. Handwriting, pencil marks, glare, and heavily curved paper may need manual corrections; **Back to puzzle** shows the original clues after solving.
 
 ## GitHub Pages
 

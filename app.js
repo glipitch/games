@@ -15,6 +15,7 @@ const cells = Array.from({ length: 81 }, (_, i) => {
     message(conflicts(board).size ? 'Repeated numbers are marked. Check the row, column and box.' : '');
   });
   input.addEventListener('keydown', e => {
+    if (original) return;
     const moves = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -9, ArrowDown: 9 };
     if (e.key in moves) { e.preventDefault(); cells[Math.max(0, Math.min(80, i + moves[e.key]))].focus(); }
     if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); input.value = ''; input.dispatchEvent(new Event('input')); }
@@ -23,19 +24,27 @@ const cells = Array.from({ length: 81 }, (_, i) => {
   $('board').append(input); return input;
 });
 function message(text, error = false) { $('status').textContent = text; $('status').classList.toggle('error', error); }
+function showResult(visible = true) {
+  $('result').hidden = !visible;
+  document.querySelector('.toolbar').hidden = visible;
+}
 function paint() {
   const bad = conflicts(board);
   cells.forEach((input, i) => {
     input.value = board[i] || '';
+    input.readOnly = !!original; input.tabIndex = original ? -1 : 0;
     const peer = selected >= 0 && (Math.floor(i / 9) === Math.floor(selected / 9) || i % 9 === selected % 9 || (Math.floor(i / 27) === Math.floor(selected / 27) && Math.floor(i % 9 / 3) === Math.floor(selected % 9 / 3)));
     input.classList.toggle('peer', peer); input.classList.toggle('invalid', bad.has(i)); input.classList.toggle('uncertain', uncertain.has(i)); input.classList.toggle('answer', !!original && !original[i]);
     input.setAttribute('aria-invalid', String(bad.has(i))); input.title = uncertain.has(i) ? 'Check this scanned digit' : '';
   });
   $('undo').hidden = !original;
+  $('solve').hidden = !!original;
+  $('board').setAttribute('aria-label', original ? 'Solved sudoku' : 'Scanned sudoku. Check digits 1 to 9. Use arrow keys to move.');
 }
-$('board').addEventListener('paste', e => {
+document.addEventListener('paste', e => {
+  if ($('scan-dialog').open) return;
   const text = e.clipboardData.getData('text').replace(/[\s|+\-]/g, '');
-  if (text.length === 81 && /^[0-9.]+$/.test(text)) { e.preventDefault(); board = [...text].map(x => Number(x) || 0); original = null; uncertain.clear(); paint(); message('Puzzle pasted.'); }
+  if (text.length === 81 && /^[0-9.]+$/.test(text) && /[1-9]/.test(text)) { e.preventDefault(); board = [...text].map(x => Number(x) || 0); original = null; uncertain.clear(); showResult(); paint(); message('Puzzle pasted.'); }
 });
 $('solve').addEventListener('click', () => {
   if (!board.some(Boolean)) return message('Add the numbers first.', true);
@@ -45,7 +54,7 @@ $('solve').addEventListener('click', () => {
   if (result.kind === 'multiple') return message('More than one solution. Add or check the missing clues.', true);
   if (!original) original = [...board]; board = result.solution; uncertain.clear(); paint(); message('Solved.');
 });
-$('clear').addEventListener('click', () => { board.fill(0); original = null; uncertain.clear(); paint(); message(''); });
+$('clear').addEventListener('click', () => { board.fill(0); original = null; uncertain.clear(); selected = -1; showResult(false); paint(); message(''); $('camera').focus(); });
 $('undo').addEventListener('click', () => { board = original; original = null; paint(); message('Back to your puzzle.'); });
 
 const dialog = $('scan-dialog'), video = $('video'), crop = $('crop');
@@ -142,7 +151,7 @@ async function processPhotos(request) {
         if (current.signal.aborted || request !== session) return;
         const accepted = automaticCandidate(result);
         if (accepted) {
-          original = accepted.board; board = accepted.solution; uncertain.clear(); paint(); closeScanner(); message('Solved.'); return;
+          original = accepted.board; board = accepted.solution; uncertain.clear(); showResult(); paint(); closeScanner(); message('Solved.'); return;
         }
       } catch (error) { if (current.signal.aborted || request !== session) return; }
     }
@@ -208,11 +217,14 @@ $('read').addEventListener('click', async () => {
   $('read').disabled = true; $('rotate').disabled = true; $('retake').disabled = true; $('progress').hidden = false;
   try {
     const grid = rectify(source, corners);
-    const result = await recognize(grid, (value, text) => { if (current.signal.aborted) return; $('progress').value = value; $('scan-status').textContent = text; }, current.signal);
+    const result = await recognize(grid, (value, text) => { if (current.signal.aborted) return; $('progress').value = value; $('scan-status').textContent = text; }, current.signal, { verify: true });
     current.signal.throwIfAborted();
-    if (!result.board.some(Boolean)) throw new Error('Could not read the numbers. Try a sharper photo, or enter them manually.');
-    board = result.board; uncertain = result.uncertain; original = null; paint(); closeScanner();
-    message(uncertain.size ? 'Check the scan. Amber cells need a closer look. Then solve.' : 'Check the scanned numbers, then solve.');
+    if (!result.board.some(Boolean)) throw new Error('Could not read the numbers. Try a sharper photo.');
+    const accepted = automaticCandidate(result);
+    original = accepted ? accepted.board : null;
+    board = accepted ? accepted.solution : result.board; uncertain = accepted ? new Set() : result.uncertain;
+    showResult(); paint(); closeScanner();
+    message(accepted ? 'Solved.' : uncertain.size ? 'Check the amber cells, then solve.' : 'Check the scanned numbers, then solve.');
   } catch (error) {
     if (!current.signal.aborted) { $('scan-status').textContent = error.message || 'Could not read this photo. Try again.'; $('read').disabled = false; $('rotate').disabled = false; $('retake').disabled = false; $('progress').hidden = true; }
   } finally { if (controller === current) controller = null; }

@@ -19,9 +19,11 @@
       <input type="file" id="photo" accept="image/*" hidden>
       <input type="file" id="native-camera" accept="image/*" capture="environment" hidden>
     </div>
-    <div class="board-wrap"><div id="board" role="group" aria-label="sudoku puzzle. Enter digits 1 to 9. Use arrow keys to move."></div></div>
-    <div class="board-caption"><button id="undo" class="text-button" hidden>Back to puzzle</button><button id="clear" class="text-button">Clear</button></div>
-    <button id="solve" class="primary solve-button">Solve <span aria-hidden="true">→</span></button>
+    <section id="result" hidden aria-label="Scanned sudoku">
+      <div class="board-wrap"><div id="board" role="group" aria-label="sudoku puzzle. Enter digits 1 to 9. Use arrow keys to move."></div></div>
+      <div class="board-caption"><button id="undo" class="text-button" hidden>Back to puzzle</button><button id="clear" class="text-button">Start again</button></div>
+      <button id="solve" class="primary solve-button">Solve <span aria-hidden="true">→</span></button>
+    </section>
     <p id="status" class="status" role="status" aria-live="polite"></p>
   </main>
   <dialog id="scan-dialog" aria-labelledby="scan-title">
@@ -32,7 +34,7 @@
     <progress id="progress" max="81" value="0" hidden aria-label="Reading puzzle"></progress>
     <p id="scan-status" role="status" aria-live="polite"></p>
     <button id="capture" class="primary">Take photo</button>
-    <button id="read" class="primary" hidden>Read grid <span aria-hidden="true">→</span></button>
+    <button id="read" class="primary" hidden>Solve photo <span aria-hidden="true">→</span></button>
     <button id="camera-upload" class="text-button camera-upload">Use a photo instead</button>
   </dialog>
 </body>

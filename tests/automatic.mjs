@@ -76,6 +76,8 @@ try {
   await feed('blank'); await page.locator('#video').evaluate(video => video.pause());
   await page.waitForFunction(() => !document.getElementById('scan-dialog').open, null, { timeout: 20000 });
   assert.equal(await page.locator('#status').textContent(), 'Solved.');
+  assert.equal(await page.locator('#result').isVisible(), true);
+  assert.equal(await page.locator('#solve').isVisible(), false);
   assert.equal(await page.locator('.cell').evaluateAll(cells => cells.map(c => c.value || '0').join('')), expected);
   assert.equal(await page.evaluate(() => window.autoFeed.track.readyState), 'ended');
   rows.push({ mode: 'captured puzzle, then blank paused live view', solved: true, elapsedMs: Date.now() - start });

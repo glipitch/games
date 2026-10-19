@@ -34,6 +34,10 @@ function show() {
   }
 }
 picker.addEventListener('change', () => { location.hash = picker.value; });
+document.querySelector('.skip').addEventListener('click', event => {
+  event.preventDefault();
+  document.querySelector('#game').focus();
+});
 window.addEventListener('hashchange', show);
 window.addEventListener('message', event => {
   if (event.origin !== location.origin || event.source !== frame.contentWindow) return;

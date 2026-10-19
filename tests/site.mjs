@@ -20,7 +20,7 @@ try {
     for (const id of ids) {
       if (viewport.width > 640) await page.locator(`[data-game="${id}"]`).click();
       else await page.locator('#game-picker').selectOption(id);
-      await page.waitForFunction(id => location.hash === '#' + id, id);
+      await page.waitForFunction(id => location.hash.slice(1).split('/')[0] === id, id);
       await page.waitForFunction(id => document.querySelector('nav [aria-current]')?.dataset.game === id, id);
       await page.waitForFunction(() => {
         const iframe = document.querySelector('#game-frame');
@@ -81,6 +81,10 @@ try {
     }
     assert.deepEqual(errors, [], 'Browser errors');
     assert.deepEqual(failed, [], 'Failed assets');
+    await page.locator('.skip').focus();
+    await page.locator('.skip').click();
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'game');
+    assert.ok(page.url().endsWith('#weave'), 'Skipping navigation keeps the selected game');
     reports.push({ viewport, games: ids.length, browserErrors: errors, failedAssets: failed });
     // A refresh and browser history must preserve a direct game link.
     await page.goto(base + '#circuit/split');

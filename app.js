@@ -58,7 +58,7 @@ $('clear').addEventListener('click', () => { board.fill(0); original = null; unc
 $('undo').addEventListener('click', () => { board = original; original = null; paint(); message('Back to your puzzle.'); });
 
 const dialog = $('scan-dialog'), video = $('video'), crop = $('crop');
-let stream = null, source = null, corners = null, dragging = -1, controller = null, session = 0;
+let stream = null, source = null, corners = null, photoView = null, dragging = -1, controller = null, session = 0;
 let cameraTimer = null, cameraReady = false, stableFrames = 0, previousCorners = null;
 let cameraTarget = { x: .5, y: .5 };
 const photos = new SnapshotQueue(2);
@@ -170,7 +170,7 @@ function setPhoto(image, selectedCorners = null) {
   const ratio = Math.min(1, 1600 / Math.max(width, height));
   source = Object.assign(document.createElement('canvas'), { width: Math.round(width * ratio), height: Math.round(height * ratio) });
   source.getContext('2d').drawImage(image, 0, 0, source.width, source.height);
-  corners = selectedCorners ? selectedCorners.map(p => ({ x: p.x * ratio, y: p.y * ratio })) : detectCorners(source); resetScanner(true); drawCrop();
+  corners = selectedCorners ? selectedCorners.map(p => ({ x: p.x * ratio, y: p.y * ratio })) : detectCorners(source); dragging = -1; resetScanner(true); drawCrop();
 }
 for (const id of ['photo', 'native-camera']) $(id).addEventListener('change', async e => {
   const file = e.target.files[0]; e.target.value = ''; if (!file) return;
@@ -189,15 +189,25 @@ $('capture').addEventListener('click', () => {
   setPhoto(photo, result.valid ? result.corners.map(p => ({ x: p.x * scale, y: p.y * scale })) : null);
 });
 function drawCrop() {
-  crop.width = source.width; crop.height = source.height;
-  crop.style.width = `min(100%, ${52 * source.width / source.height}svh)`;
-  const ctx = crop.getContext('2d'); ctx.drawImage(source, 0, 0);
-  ctx.fillStyle = '#10291c88'; ctx.beginPath(); ctx.rect(0, 0, crop.width, crop.height); corners.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath(); ctx.fill('evenodd');
+  if (!source) return;
+  // Show the selected grid at a useful size even in a tall newspaper photo.
+  // Keep this viewport still while a corner is being dragged.
+  if (dragging < 0 || !photoView) {
+    const xs = corners.map(p => p.x), ys = corners.map(p => p.y);
+    const margin = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) * .12;
+    const x = Math.max(0, Math.floor(Math.min(...xs) - margin)), y = Math.max(0, Math.floor(Math.min(...ys) - margin));
+    photoView = { x, y, width: Math.max(1, Math.min(source.width, Math.ceil(Math.max(...xs) + margin)) - x), height: Math.max(1, Math.min(source.height, Math.ceil(Math.max(...ys) + margin)) - y) };
+  }
+  crop.width = photoView.width; crop.height = photoView.height;
+  crop.style.width = `min(100%, ${52 * crop.width / crop.height}svh)`;
+  const ctx = crop.getContext('2d'); ctx.drawImage(source, -photoView.x, -photoView.y);
+  const points = corners.map(p => ({ x: p.x - photoView.x, y: p.y - photoView.y }));
+  ctx.fillStyle = '#10291c88'; ctx.beginPath(); ctx.rect(0, 0, crop.width, crop.height); points.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath(); ctx.fill('evenodd');
   const factor = crop.width / (crop.getBoundingClientRect().width || 450);
-  ctx.strokeStyle = '#d4efc2'; ctx.lineWidth = 2 * factor; ctx.beginPath(); corners.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath(); ctx.stroke();
-  for (const p of corners) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p.x, p.y, 9 * factor, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#214f40'; ctx.lineWidth = 2 * factor; ctx.stroke(); }
+  ctx.strokeStyle = '#d4efc2'; ctx.lineWidth = 2 * factor; ctx.beginPath(); points.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath(); ctx.stroke();
+  for (const p of points) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p.x, p.y, 9 * factor, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#214f40'; ctx.lineWidth = 2 * factor; ctx.stroke(); }
 }
-function position(e) { const r = crop.getBoundingClientRect(); return { x: (e.clientX - r.left) * crop.width / r.width, y: (e.clientY - r.top) * crop.height / r.height }; }
+function position(e) { const r = crop.getBoundingClientRect(); return { x: photoView.x + (e.clientX - r.left) * crop.width / r.width, y: photoView.y + (e.clientY - r.top) * crop.height / r.height }; }
 crop.addEventListener('pointerdown', e => {
   if (controller) return;
   const p = position(e); let best = Infinity;
@@ -205,8 +215,8 @@ crop.addEventListener('pointerdown', e => {
   if (best > 44 * crop.width / crop.getBoundingClientRect().width) { dragging = -1; return; }
   crop.setPointerCapture(e.pointerId); e.preventDefault();
 });
-crop.addEventListener('pointermove', e => { if (dragging < 0) return; const p = position(e); corners[dragging] = { x: Math.max(0, Math.min(crop.width - 1, p.x)), y: Math.max(0, Math.min(crop.height - 1, p.y)) }; drawCrop(); });
-for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) crop.addEventListener(event, () => { dragging = -1; });
+crop.addEventListener('pointermove', e => { if (dragging < 0) return; const p = position(e); corners[dragging] = { x: Math.max(0, Math.min(source.width - 1, p.x)), y: Math.max(0, Math.min(source.height - 1, p.y)) }; drawCrop(); });
+for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) crop.addEventListener(event, () => { if (dragging >= 0) { dragging = -1; drawCrop(); } });
 $('rotate').addEventListener('click', () => {
   const turned = corners.map(p => ({ x: source.height - 1 - p.y, y: p.x }));
   const rotated = Object.assign(document.createElement('canvas'), { width: source.height, height: source.width }), ctx = rotated.getContext('2d');

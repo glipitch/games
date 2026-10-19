@@ -6,7 +6,7 @@ Start with **Scan puzzle** or **Upload photo**. The grid appears only after a sc
 
 - Responsive layout and touch-friendly corner adjustment.
 - Compact controls and a live camera outline that turns green when the complete grid is clear and steady. **Take photo** is available as soon as video arrives; framing advice never locks the manual shutter. Automatic capture still requires a complete, clear grid, and uncertain photos need review.
-- Visible reading/loading feedback immediately after **Solve photo**, with photo controls kept on screen on phones. Failed downloads and stalled reads restore the controls for retry instead of leaving a disabled button indefinitely.
+- Visible reading/loading feedback immediately after **Solve photo**, with photo controls kept on screen on phones. The preview focuses on the selected grid in tall photos, with room to adjust its corners. Failed downloads and stalled reads restore the controls for retry instead of leaving a disabled button indefinitely.
 - Automatic grid detection, perspective correction, and local grid-line alignment for curved paper.
 - Finds angled grids among nearby puzzles. Centre the intended puzzle or tap it in the camera preview; capture and rotation keep that selection.
 - Separates touching grid outlines using the pattern of enclosed cells, and checks digit orientation automatically.

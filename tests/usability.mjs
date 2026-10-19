@@ -84,6 +84,43 @@ try {
   await stalledContext.close();
   console.log('Stalled startup times out, exposes retry, and recovers; phone photo controls stay visible.');
 
+  const photoContext = await browser.newContext({ viewport: { width: 390, height: 640 } });
+  const photo = await photoContext.newPage(); await photo.goto(baseURL);
+  const printedClues = '530070000600195000098000060800060003400803001700020006060000280000419005000080079';
+  const newspaper = await photo.evaluate(clues => {
+    const canvas = Object.assign(document.createElement('canvas'), { width: 700, height: 1600 }), ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'white'; ctx.fillRect(0, 0, 700, 1600); ctx.strokeStyle = '#222';
+    for (let i = 0; i <= 9; i++) {
+      ctx.lineWidth = i % 3 ? 1.5 : 4; ctx.beginPath(); ctx.moveTo(80 + i * 60, 500); ctx.lineTo(80 + i * 60, 1040); ctx.moveTo(80, 500 + i * 60); ctx.lineTo(620, 500 + i * 60); ctx.stroke();
+    }
+    ctx.fillStyle = '#222'; ctx.font = '34px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    [...clues].forEach((n, i) => { if (n !== '0') ctx.fillText(n, 110 + i % 9 * 60, 530 + Math.floor(i / 9) * 60); });
+    return canvas.toDataURL().split(',')[1];
+  }, printedClues);
+  await photo.locator('#photo').setInputFiles({ name: 'newspaper.png', mimeType: 'image/png', buffer: Buffer.from(newspaper, 'base64') });
+  const box = await photo.locator('#crop').boundingBox();
+  assert.ok(box.width > 260, 'the grid fills the preview instead of shrinking with the whole tall photo');
+  assert.equal(await photo.locator('#read').evaluate(el => el.getBoundingClientRect().bottom <= innerHeight), true);
+  // Find a visible white handle, move it, and return it while keeping the
+  // preview still. This exercises viewport-to-photo coordinates during a drag.
+  const handle = await photo.locator('#crop').evaluate(c => {
+    const data = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, scale = c.width / c.getBoundingClientRect().width;
+    for (let y = 0; y < c.height / 2; y++) for (let x = 0; x < c.width / 3; x++) {
+      const i = (y * c.width + x) * 4;
+      if (data[i] === 255 && data[i + 1] === 255 && data[i + 2] === 255) return { x: x / scale, y: y / scale + 9 };
+    }
+    throw new Error('No corner handle visible');
+  });
+  await photo.mouse.move(box.x + handle.x, box.y + handle.y); await photo.mouse.down();
+  await photo.mouse.move(box.x + handle.x + 8, box.y + handle.y + 8);
+  await photo.mouse.move(box.x + handle.x, box.y + handle.y); await photo.mouse.up();
+  await photo.locator('#read').click();
+  await photo.waitForFunction(() => !document.getElementById('scan-dialog').open, null, { timeout: 30000 });
+  if (await photo.locator('#undo').isVisible()) await photo.locator('#undo').click();
+  assert.equal(await photo.locator('.cell').evaluateAll(cells => cells.map(c => c.value || '0').join('')), printedClues);
+  await photoContext.close();
+  console.log('A tall photo shows a readable grid, with working corner adjustment and all 81 cells preserved.');
+
   const readingContext = await browser.newContext();
   const reading = await readingContext.newPage(), readingErrors = [];
   reading.on('pageerror', error => readingErrors.push(error.message));

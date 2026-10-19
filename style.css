@@ -2,3 +2,4 @@
 
 .status:empty{display:none}.board-caption{justify-content:flex-end}.board-caption #undo{margin-right:auto}#scan-help{margin:8px 0}button:disabled{cursor:default}
 .toolbar{flex-direction:column;align-items:stretch;gap:4px;margin-bottom:0}.camera-button{justify-content:center;width:100%;padding:12px 16px;background:var(--green);color:#fff;border-color:var(--green);font-size:14px}.camera-button:hover{background:#2a604d}#upload{align-self:center}
+#crop{margin-inline:auto}#read[disabled]{opacity:1;background:#496b5d}#scan-status{overflow-wrap:anywhere}

@@ -21,7 +21,7 @@ try {
       server.stdout.on('data', data => { const url = data.toString().match(/http:\/\/127\.0\.0\.1:\d+/); if (url) { clearTimeout(timer); resolve(url[0] + '/'); } });
     });
   }
-  for (const file of ['browser.mjs', 'recognition.mjs', 'automatic.mjs', 'datasets.mjs']) await run(['tests/' + file]);
+  for (const file of ['browser.mjs', 'usability.mjs', 'recognition.mjs', 'automatic.mjs', 'datasets.mjs']) await run(['tests/' + file]);
   console.log('All sudoku checks passed, including all 65 dataset photographs.');
 } catch (error) { console.error(error.message); process.exitCode = 1; }
 finally { server?.kill(); }

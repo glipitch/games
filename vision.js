@@ -408,19 +408,30 @@ function loadLibrary() {
 let scanner = null;
 function scannerEntry() {
   if (scanner) return scanner;
-  const entry = { busy: false, worker: null };
+  const entry = { busy: false, worker: null, failed: false };
+  entry.failure = new Promise((_, reject) => { entry.fail = error => {
+    if (entry.failed) return;
+    entry.failed = true; reject(error instanceof Error ? error : new Error(String(error)));
+  }; });
+  // Prewarming may fail before a photo starts reading.
+  entry.failure.catch(() => {});
   scanner = entry;
-  entry.promise = (async () => {
+  const startupTimer = setTimeout(() => entry.fail(new Error('The scanner took too long to load. Check your connection and try again.')), 45000);
+  const initialization = (async () => {
     await loadLibrary();
     const worker = entry.worker = await Tesseract.createWorker('eng', 1, {
       workerPath: new URL('./vendor/worker.min.js', import.meta.url).href,
       corePath: new URL('./vendor/core/', import.meta.url).href,
       langPath: new URL('./vendor/data/', import.meta.url).href.replace(/\/$/, ''),
       workerBlobURL: false,
+      errorHandler: () => entry.fail(new Error('The scanner could not read this photo. Try again or choose another photo.')),
     });
+    if (entry.failed) { await worker.terminate(); throw new Error('Scanner cancelled. Try again.'); }
+    worker.worker.addEventListener('error', () => entry.fail(new Error('The scanner stopped. Try again or choose another photo.')));
     await worker.setParameters({ tessedit_char_whitelist: '123456789', tessedit_pageseg_mode: '8', user_defined_dpi: '150' });
     return worker;
-  })().catch(error => { if (scanner === entry) scanner = null; void entry.worker?.terminate(); throw error; });
+  })();
+  entry.promise = Promise.race([initialization, entry.failure]).catch(error => { if (scanner === entry) scanner = null; void entry.worker?.terminate(); throw error; }).finally(() => clearTimeout(startupTimer));
   return entry;
 }
 
@@ -433,12 +444,17 @@ export async function recognize(grid, onProgress, signal, { verify = false } = {
   if (entry.busy) throw new Error('The scanner is already reading a photo.');
   entry.busy = true;
   let finished = false, rejectAbort, pending = null;
+  const readTimer = setTimeout(() => entry.fail(new Error('Reading took too long. Try again or choose a clearer photo.')), 60000);
   const aborted = new Promise((_, reject) => { rejectAbort = reject; });
   const stop = () => {
     if (scanner === entry) scanner = null;
     // Tesseract may still be encoding a canvas before posting it to the worker.
     // Let that job settle before termination; the caller cancels immediately.
-    void entry.promise.then(async worker => { await pending?.catch(() => {}); await worker.terminate(); }, () => {});
+    void entry.promise.then(async worker => {
+      let cleanupTimer;
+      await Promise.race([pending?.catch(() => {}), new Promise(resolve => { cleanupTimer = setTimeout(resolve, 500); })]);
+      clearTimeout(cleanupTimer); await worker.terminate();
+    }, () => {});
   };
   const abort = () => { stop(); rejectAbort(signal.reason); };
   signal.addEventListener('abort', abort, { once: true });
@@ -448,7 +464,7 @@ export async function recognize(grid, onProgress, signal, { verify = false } = {
     if (!digits.some(Boolean)) throw new Error('No digits found. Check the corners and use a clear, well-lit photo.');
     onProgress(0, 'Loading scanner…'); const worker = await Promise.race([entry.promise, aborted]);
     signal.throwIfAborted();
-    const readDigit = image => { pending = worker.recognize(image); return Promise.race([pending, aborted]); };
+    const readDigit = image => { pending = worker.recognize(image); return Promise.race([pending, aborted, entry.failure]); };
     function rotate(source, turns) {
       if (!turns) return source;
       const c = canvas(source.width, source.height), ctx = c.getContext('2d'); ctx.translate(c.width / 2, c.height / 2); ctx.rotate(turns * Math.PI / 2); ctx.drawImage(source, -source.width / 2, -source.height / 2); return c;
@@ -514,6 +530,7 @@ export async function recognize(grid, onProgress, signal, { verify = false } = {
     finished = true;
     return { board, uncertain, orientation, confidence, verified, detected };
   } finally {
+    clearTimeout(readTimer);
     signal.removeEventListener('abort', abort); entry.busy = false;
     if (!finished && !signal.aborted) stop();
   }

@@ -82,7 +82,15 @@ await page.evaluate(() => {
 });
 await page.getByRole('button', { name: 'Scan puzzle', exact: true }).click();
 await page.waitForFunction(() => document.getElementById('scan-status').textContent.includes('9 × 9'));
-assert.equal(await page.locator('#capture').isDisabled(), true);
+assert.equal(await page.locator('#capture').isEnabled(), true, 'manual capture is available even before a grid is detected');
+async function waitForGuide(ready) {
+  await page.waitForFunction(ready => {
+    const c = document.getElementById('camera-guide'), data = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    let green = false;
+    for (let i = 0; i < data.length; i += 4) if (data[i] === 167 && data[i + 1] === 247 && data[i + 2] === 169) { green = true; break; }
+    return green === ready;
+  }, ready);
+}
 async function cameraImage(mode = 'valid', data = cameraFixture) {
   await page.evaluate(async ({ data, mode }) => {
     const image = new Image(); image.src = 'data:image/png;base64,' + data; await image.decode();
@@ -92,13 +100,13 @@ async function cameraImage(mode = 'valid', data = cameraFixture) {
     ctx.filter = 'none';
   }, { data, mode });
 }
-await cameraImage(); await page.waitForFunction(() => !document.getElementById('capture').disabled);
+await cameraImage(); await waitForGuide(true);
 assert.match(await page.locator('#scan-status').innerText(), /Grid ready|Reading/);
 await page.screenshot({ path: 'test-results/camera-ready.png', fullPage: true });
-await cameraImage('cropped'); await page.waitForFunction(() => document.getElementById('capture').disabled);
-await cameraImage(); await page.waitForFunction(() => !document.getElementById('capture').disabled);
-await cameraImage('blurred'); await page.waitForFunction(() => document.getElementById('capture').disabled);
-await cameraImage(); await page.waitForFunction(() => !document.getElementById('capture').disabled);
+await cameraImage('cropped'); await waitForGuide(false); assert.equal(await page.locator('#capture').isEnabled(), true);
+await cameraImage(); await waitForGuide(true);
+await cameraImage('blurred'); await waitForGuide(false); assert.equal(await page.locator('#capture').isEnabled(), true);
+await cameraImage(); await waitForGuide(true);
 await page.setViewportSize({ width: 390, height: 700 });
 await page.screenshot({ path: 'test-results/camera-mobile.png', fullPage: true });
 assert.equal(await page.locator('#capture').evaluate(el => el.getBoundingClientRect().bottom <= innerHeight), true);
@@ -133,7 +141,7 @@ for (const [name, result] of Object.entries(angles)) {
 }
 await page.getByRole('button', { name: 'Scan puzzle', exact: true }).click();
 await page.waitForFunction(() => document.getElementById('scan-status').textContent.includes('9 × 9'));
-await cameraImage('valid', scenes.two.captureData); await page.waitForFunction(() => !document.getElementById('capture').disabled);
+await cameraImage('valid', scenes.two.captureData); await waitForGuide(true);
 const outlineCenter = () => page.locator('#camera-guide').evaluate(c => {
   const { data } = c.getContext('2d').getImageData(0, 0, c.width, c.height); let sum = 0, count = 0;
   for (let p = 0; p < data.length; p += 4) if (data[p] === 167 && data[p + 1] === 247 && data[p + 2] === 169) { sum += (p / 4) % c.width; count++; }
@@ -142,7 +150,7 @@ const outlineCenter = () => page.locator('#camera-guide').evaluate(c => {
 assert.ok(await outlineCenter() < .5, 'tracks the grid at the centre before tapping');
 const finder = await page.locator('#viewfinder').boundingBox();
 await page.locator('#viewfinder').click({ position: { x: finder.width * 500 / 640, y: finder.height / 2 } });
-await page.waitForFunction(() => !document.getElementById('capture').disabled);
+await waitForGuide(true);
 assert.ok(await outlineCenter() > .65, 'tap selects the other tilted grid');
 await page.screenshot({ path: 'test-results/camera-two-grids.png', fullPage: true });
 await page.getByRole('button', { name: 'Take photo' }).click();

@@ -23,7 +23,7 @@ const cells = Array.from({ length: 81 }, (_, i) => {
   });
   $('board').append(input); return input;
 });
-function message(text, error = false) { $('status').textContent = text; $('status').classList.toggle('error', error); }
+function message(text, error = false) { $('status').textContent = text; $('status').classList.toggle('error', error); if (error) $('status').scrollIntoView({ block: 'nearest' }); }
 function showResult(visible = true) {
   $('result').hidden = !visible;
   document.querySelector('.toolbar').hidden = visible;
@@ -64,7 +64,7 @@ let cameraTarget = { x: .5, y: .5 };
 const photos = new SnapshotQueue(2);
 let automaticController = null, lastSnapshotFrame = -1, nextSnapshot = 0, snapshotId = 0;
 const stopCamera = () => { automaticController?.abort(); automaticController = null; photos.clear(); clearTimeout(cameraTimer); cameraTimer = null; cameraReady = false; stableFrames = 0; previousCorners = null; stream?.getTracks().forEach(track => track.stop()); stream = null; video.srcObject = null; };
-function closeScanner() { session++; stopCamera(); controller?.abort(); controller = null; source = null; corners = null; if (dialog.open) dialog.close(); }
+function closeScanner() { session++; stopCamera(); controller?.abort(); controller = null; source = null; corners = null; dialog.removeAttribute('aria-busy'); if (dialog.open) dialog.close(); }
 dialog.addEventListener('cancel', e => { e.preventDefault(); closeScanner(); });
 dialog.addEventListener('close', () => { if (!dialog.open) { stopCamera(); controller?.abort(); } });
 $('close-scan').addEventListener('click', closeScanner);
@@ -76,7 +76,7 @@ function resetScanner(photoMode = false) {
   video.hidden = photoMode; $('camera-guide').hidden = photoMode; crop.hidden = !photoMode;
   $('viewfinder').classList.toggle('camera-mode', !photoMode);
   $('crop-tools').hidden = !photoMode; $('capture').hidden = photoMode; $('capture').disabled = true;
-  $('read').hidden = !photoMode; $('read').disabled = false; $('rotate').disabled = false; $('retake').disabled = false;
+  $('read').hidden = !photoMode; $('read').disabled = false; $('read').textContent = 'Solve photo →'; $('rotate').disabled = false; $('retake').disabled = false; dialog.removeAttribute('aria-busy');
   $('camera-upload').hidden = photoMode; $('progress').hidden = true; $('scan-status').textContent = '';
   if (!photoMode) { cameraTarget = { x: .5, y: .5 }; drawGuide(null, false); }
 }
@@ -123,11 +123,11 @@ function drawGuide(points, ready, size = 640) {
 function checkCamera(request) {
   if (request !== session || !stream || !dialog.open) return;
   if (video.readyState >= 2 && video.videoWidth) {
+    $('capture').disabled = false;
     const frame = cameraFrame(640), result = assessFrame(frame, { target: cameraTarget, previous: previousCorners });
     const steady = result.valid && previousCorners && result.corners.every((p, i) => Math.hypot(p.x - previousCorners[i].x, p.y - previousCorners[i].y) < frame.width * .025);
     stableFrames = result.valid ? (steady ? stableFrames + 1 : 1) : 0;
     previousCorners = result.valid ? result.corners : null; cameraReady = stableFrames >= 3;
-    $('capture').disabled = !cameraReady;
     $('scan-status').textContent = automaticController ? 'Reading…' : result.valid && !cameraReady ? 'Hold steady…' : result.message;
     drawGuide(result.corners, cameraReady, frame.width);
     if (result.valid && photos.length < photos.capacity && video.currentTime > lastSnapshotFrame && performance.now() >= nextSnapshot) {
@@ -161,7 +161,7 @@ $('viewfinder').addEventListener('click', e => {
   if (video.hidden || !stream) return;
   const r = $('viewfinder').getBoundingClientRect();
   cameraTarget = { x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), y: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)) };
-  previousCorners = null; stableFrames = 0; cameraReady = false; $('capture').disabled = true;
+  previousCorners = null; stableFrames = 0; cameraReady = false;
   clearTimeout(cameraTimer); checkCamera(session);
 });
 function setPhoto(image, selectedCorners = null) {
@@ -182,15 +182,15 @@ for (const id of ['photo', 'native-camera']) $(id).addEventListener('change', as
   finally { URL.revokeObjectURL(url); }
 });
 $('capture').addEventListener('click', () => {
-  if (!video.videoWidth || !cameraReady) return;
+  if (video.readyState < 2 || !video.videoWidth) return;
   const preview = cameraFrame(640), result = assessFrame(preview, { target: cameraTarget, previous: previousCorners });
-  if (!result.valid) { cameraReady = false; stableFrames = 0; $('capture').disabled = true; $('scan-status').textContent = result.message; drawGuide(result.corners, false); return; }
   // Copy before stopping the video stream.
   const photo = cameraFrame(1600), scale = photo.width / preview.width;
-  setPhoto(photo, result.corners.map(p => ({ x: p.x * scale, y: p.y * scale })));
+  setPhoto(photo, result.valid ? result.corners.map(p => ({ x: p.x * scale, y: p.y * scale })) : null);
 });
 function drawCrop() {
   crop.width = source.width; crop.height = source.height;
+  crop.style.width = `min(100%, ${52 * source.width / source.height}svh)`;
   const ctx = crop.getContext('2d'); ctx.drawImage(source, 0, 0);
   ctx.fillStyle = '#10291c88'; ctx.beginPath(); ctx.rect(0, 0, crop.width, crop.height); corners.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath(); ctx.fill('evenodd');
   const factor = crop.width / (crop.getBoundingClientRect().width || 450);
@@ -213,11 +213,20 @@ $('rotate').addEventListener('click', () => {
   ctx.translate(rotated.width, 0); ctx.rotate(Math.PI / 2); ctx.drawImage(source, 0, 0); source = rotated; corners = [turned[3], ...turned.slice(0, 3)]; drawCrop();
 });
 $('read').addEventListener('click', async () => {
+  if (controller || !source) return;
   controller = new AbortController(); const current = controller;
   $('read').disabled = true; $('rotate').disabled = true; $('retake').disabled = true; $('progress').hidden = false;
+  $('read').textContent = 'Reading…'; $('progress').removeAttribute('value');
+  $('scan-status').textContent = 'Reading photo…'; dialog.setAttribute('aria-busy', 'true');
   try {
+    // Give the browser a turn to show feedback before image processing begins.
+    await new Promise(resolve => setTimeout(resolve, 0)); current.signal.throwIfAborted();
     const grid = rectify(source, corners);
-    const result = await recognize(grid, (value, text) => { if (current.signal.aborted) return; $('progress').value = value; $('scan-status').textContent = text; }, current.signal, { verify: true });
+    const result = await recognize(grid, (value, text) => {
+      if (current.signal.aborted) return;
+      if (value > 0 && value < 81) $('progress').value = value; else $('progress').removeAttribute('value');
+      $('scan-status').textContent = text; $('read').textContent = text === 'Loading scanner…' ? 'Loading scanner…' : text === 'Checking the numbers…' ? 'Checking…' : 'Reading…';
+    }, current.signal, { verify: true });
     current.signal.throwIfAborted();
     if (!result.board.some(Boolean)) throw new Error('Could not read the numbers. Try a sharper photo.');
     const accepted = automaticCandidate(result);
@@ -227,6 +236,8 @@ $('read').addEventListener('click', async () => {
     message(accepted ? 'Solved.' : uncertain.size ? 'Check the amber cells, then solve.' : 'Check the scanned numbers, then solve.');
   } catch (error) {
     if (!current.signal.aborted) { $('scan-status').textContent = error.message || 'Could not read this photo. Try again.'; $('read').disabled = false; $('rotate').disabled = false; $('retake').disabled = false; $('progress').hidden = true; }
-  } finally { if (controller === current) controller = null; }
+  } finally {
+    if (controller === current) { controller = null; dialog.removeAttribute('aria-busy'); $('read').textContent = 'Solve photo →'; }
+  }
 });
 paint();

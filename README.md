@@ -5,7 +5,8 @@ A minimal camera-based sudoku solver for desktop and mobile browsers.
 Start with **Scan puzzle** or **Upload photo**. The grid appears only after a scan. Camera photos are captured continuously and processed in the background; the first verified success shows the solution. Moving the camera does not cancel photos already taken. For uploaded or manually captured photos, adjust the four grid corners and choose **Solve photo**. Verified scans go straight to the solution; uncertain scans show the numbers for correction before solving. **Start again** returns to the opening screen. You can also paste an 81-character puzzle using `0` or `.` for empty cells, then edit its clues.
 
 - Responsive layout and touch-friendly corner adjustment.
-- Compact controls and a live camera outline that turns green when the complete grid is clear and steady. Capture stays disabled for missing, clipped, blurred, or unsteady grids. This checks framing and image quality; digit accuracy and puzzle solvability are checked after scanning.
+- Compact controls and a live camera outline that turns green when the complete grid is clear and steady. **Take photo** is available as soon as video arrives; framing advice never locks the manual shutter. Automatic capture still requires a complete, clear grid, and uncertain photos need review.
+- Visible reading/loading feedback immediately after **Solve photo**, with photo controls kept on screen on phones. Failed downloads and stalled reads restore the controls for retry instead of leaving a disabled button indefinitely.
 - Automatic grid detection, perspective correction, and local grid-line alignment for curved paper.
 - Finds angled grids among nearby puzzles. Centre the intended puzzle or tap it in the camera preview; capture and rotation keep that selection.
 - Separates touching grid outlines using the pattern of enclosed cells, and checks digit orientation automatically.
@@ -35,7 +36,7 @@ This is a static site with no server, API keys, analytics, or third-party runtim
 
 ## Checks
 
-`pnpm test` starts its own local server and runs unit, browser, cancellation, automatic-camera, and dataset regression checks. Install development dependencies and a Playwright browser first. `pnpm test:unit` runs only the fast unit tests. The same full suite runs in GitHub Actions on every push and pull request.
+`pnpm test` starts its own local server and runs unit, browser, usability, cancellation, automatic-camera, and dataset regression checks. Install development dependencies and a Playwright browser first. `pnpm test:unit` runs only the fast unit tests. The same full suite runs in GitHub Actions on every push and pull request.
 
 For browser checks, install development dependencies with `pnpm install`, install Chromium with `pnpm exec playwright install chromium`, and start the local server. Then run `pnpm test:browser`. Set `PLAYWRIGHT_CHANNEL=chrome` to use an installed Google Chrome instead, or `TEST_URL` to check a deployed site. Browser checks cover solving, correction, desktop and mobile layout, camera readiness and lifecycle with a changing video feed, rejection of cropped/blurred/incorrect grids, printed and photographed puzzle recognition, and absence of external network requests.
 
@@ -44,6 +45,8 @@ For browser checks, install development dependencies with `pnpm install`, instal
 `pnpm test:photo` checks a local photo against `TEST_EXPECTED` (81 digits, `0` for blanks), with its path in `TEST_PHOTO`. Optional `TEST_CAMERA_CROP=x,y,width,height` also feeds that image region through the camera capture flow. These tests do not upload the photo.
 
 `pnpm test:recognition` checks cancellation and immediate retry during scanner startup, orientation detection, and digit reading, plus worker reuse across all four rotations. `pnpm test:performance` records reading time, OCR call counts, initialization time, and solving time for three photographs. See [timing measurements](docs/performance.md).
+
+`pnpm test:usability` checks failed scanner downloads, stalled loading and OCR jobs, successful retries in the same photo, manual capture without a detected grid, immediate busy feedback, and visible controls on portrait photos. Loading has a 45-second deadline and each reading attempt a 60-second deadline; cancellation remains available throughout. Timeout tests advance the browser clock rather than waiting a minute.
 
 `pnpm test:automatic` supplies a changing camera feed and tests capture while OCR is busy, capture order and queue limits, solving an already taken photo after the live view changes or pauses, sideways puzzles, a photographed puzzle, cancellation, and rejection of blank, clipped, blurred and conflicting grids. No capture/read/solve buttons are used for successful automatic scans.
 

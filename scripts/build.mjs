@@ -5,7 +5,7 @@ const output = join(root, '_site');
 if (output !== join(root, '_site')) throw Error('Unexpected build directory');
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
-for (const name of ['index.html', 'style.css', 'app.js', 'icon.svg']) await cp(join(root, name), join(output, name));
+for (const name of ['index.html', 'style.css', 'app.js', 'icon.svg', 'fonts.css', 'theme.js', 'assets']) await cp(join(root, name), join(output, name), { recursive: true });
 await writeFile(join(output, '.nojekyll'), '');
 await cp(join(root, 'snapword/dist'), join(output, 'library'), { recursive: true });
 await mkdir(join(output, 'sudoku'));
@@ -18,7 +18,8 @@ for (const folder of ['library', 'sudoku']) {
     const file = join(output, folder, name);
     if (name.endsWith('.html')) {
       let html = await readFile(file, 'utf8');
-      html = html.replace('</head>', '<link rel="stylesheet" href="./embed.css"><script src="./embed.js"></script></head>');
+      html = html.replace('<head>', '<head><script src="../theme.js?v=2"></script><link rel="stylesheet" href="../fonts.css?v=2">');
+      html = html.replace('</head>', '<link rel="stylesheet" href="./embed.css?v=2"><script src="./embed.js?v=2"></script></head>');
       html = html.replaceAll('All 9 games', 'All games').replaceAll('all nine games', 'all games').replaceAll('9 games ↗', 'games ↗');
       await writeFile(file, html);
     }

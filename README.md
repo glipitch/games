@@ -11,3 +11,9 @@ Source games are in `snapword/dist/` and `sudoku/`. The build adds collection na
 GitHub Actions tests the games, builds `_site/`, and deploys that directory to GitHub Pages. Development files, research material, test photos, and local tooling are excluded from the published site. The previous Sudoku Git history is retained in this repository.
 
 See `snapword/README.md` and `sudoku/README.md` for individual game details and the scanner's fuller regression checks.
+
+The collection now supports a persistent light/dark theme (defaulting to the device preference), a collapsible desktop game index, and portrait/landscape layouts. DM Sans and Manrope are bundled under `assets/fonts/`, including their SIL OFL licenses and pinned source provenance. No external font requests are needed.
+
+Daily puzzles are shared by all players for a London calendar day and refresh at midnight. Free play supplies extra puzzles with separate progress and no effect on daily streaks. A short explanation appears beneath the mode tabs. Spider instead uses shuffled deals; Sudoku uses the puzzle supplied by the player.
+
+Spider keeps all ten columns visible at every screen width. Narrow screens use compact rank-and-suit faces with 24-pixel exposed rank strips; wider tables use the original illustrated SVG deck. The navy-and-gold vector backs and restrained green table replace the web motif. Resize and sidebar collapse recalculate the table without changing the deal. Existing game saves remain compatible.

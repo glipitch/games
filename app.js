@@ -13,7 +13,7 @@ const games = [
 const nav = document.querySelector('#game-index');
 const picker = document.querySelector('#game-picker');
 const frame = document.querySelector('#game-frame');
-nav.innerHTML = games.map(g => `<a href="#${g.id}" data-game="${g.id}"><span class="symbol" aria-hidden="true">${g.symbol}</span>${g.name}</a>`).join('');
+nav.innerHTML = games.map(g => `<a href="#${g.id}" data-game="${g.id}" title="${g.name}" aria-label="${g.name}"><span class="symbol" aria-hidden="true">${g.symbol}</span><span class="nav-label">${g.name}</span></a>`).join('');
 picker.innerHTML = games.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
 let current = '';
 function show() {
@@ -34,6 +34,36 @@ function show() {
   }
 }
 picker.addEventListener('change', () => { location.hash = picker.value; });
+const sidebarToggle = document.querySelector('#sidebar-toggle');
+function collapse(value) {
+  document.body.classList.toggle('index-collapsed', value);
+  sidebarToggle.setAttribute('aria-expanded', String(!value));
+  const label = value ? 'Expand game index' : 'Collapse game index';
+  sidebarToggle.setAttribute('aria-label', label);
+  sidebarToggle.title = label;
+}
+try { collapse(localStorage.getItem('games:index-collapsed') === 'true'); } catch {}
+sidebarToggle.addEventListener('click', () => {
+  const value = !document.body.classList.contains('index-collapsed');
+  collapse(value);
+  try { localStorage.setItem('games:index-collapsed', String(value)); } catch {}
+});
+const themeToggle = document.querySelector('#theme-toggle');
+function themeLabel() {
+  const dark = window.gamesTheme.get() === 'dark';
+  themeToggle.setAttribute('aria-pressed', String(dark));
+  themeToggle.setAttribute('aria-label', dark ? 'Use light mode' : 'Use dark mode');
+  themeToggle.title = dark ? 'Use light mode' : 'Use dark mode';
+  themeToggle.querySelector('.nav-label').textContent = dark ? 'Light mode' : 'Dark mode';
+  frame.contentWindow?.postMessage({ type: 'games:theme', theme: window.gamesTheme.get() }, location.origin);
+}
+themeToggle.addEventListener('click', () => window.gamesTheme.set(window.gamesTheme.get() === 'dark' ? 'light' : 'dark'));
+window.addEventListener('games:theme', themeLabel);
+frame.addEventListener('load', themeLabel);
+themeLabel();
+const modesDialog = document.querySelector('#modes-dialog');
+document.querySelector('#modes-help').addEventListener('click', () => modesDialog.showModal());
+document.querySelector('#close-modes').addEventListener('click', () => modesDialog.close());
 document.querySelector('.skip').addEventListener('click', event => {
   event.preventDefault();
   document.querySelector('#game').focus();
@@ -43,9 +73,9 @@ window.addEventListener('message', event => {
   if (event.origin !== location.origin || event.source !== frame.contentWindow) return;
   if (event.data?.type === 'games:navigate' && games.some(g => g.id === event.data.id)) location.hash = event.data.id;
   if (event.data?.type === 'games:index') {
-    (matchMedia('(max-width:640px)').matches ? picker : nav.querySelector('[aria-current]')).focus();
+    (matchMedia('(max-width:900px)').matches ? picker : nav.querySelector('[aria-current]')).focus();
   }
-  if (event.data?.type === 'games:variant' && current.startsWith('circuit') && ['classic', 'wrap', 'locked', 'split'].includes(event.data.variant)) {
+  if (event.data?.type === 'games:variant' && current.startsWith('circuit') && (!location.hash || location.hash.slice(1).split('/')[0] === 'circuit') && ['classic', 'wrap', 'locked', 'split'].includes(event.data.variant)) {
     current = 'circuit/' + event.data.variant;
     history.replaceState(null, '', '#' + current);
   }

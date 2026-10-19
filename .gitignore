@@ -1,4 +1,8 @@
 node_modules/
 test-results/
-.DS_Store
-*.log
+_site/
+.local/
+card-research/
+*.tar.gz
+spider-cards-v11.png
+snapword/.openai/

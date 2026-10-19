@@ -1,0 +1,10 @@
+{
+  "name": "snapword",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test tests.mjs signal-tests.mjs arcade-tests.mjs circuit-tests.mjs spider-tests.mjs spider-layout-tests.mjs"
+  }
+}

@@ -1,0 +1,26 @@
+# Card research — October 2026
+
+The user identified the reference as https://free-spider-solitaire.com/.
+Its source identifies the default card set as **Modern**, with 146 × 198
+pixel PNG faces. Direct visual comparison of the queen of spades and queen
+of hearts confirmed the exact match to the user's screenshot.
+
+The site's About panel states Copyright 2011–2026 TreeCardGames, All rights
+reserved. No reusable artwork licence was found. None of its images or
+implementation code is used in the new deck.
+
+The older SVG-cards French courts were sharp but stylistically wrong.
+Public-domain Byron Knoll, KDE's card sets, Atlasnye and other reusable
+decks were compared; none matched the illustrated faces in the reference.
+
+The replacement uses six original high-resolution generated court portraits,
+deterministic 180-degree mirroring, outlined serif corner marks, new vector
+suit shapes, traditional pip layouts, fine grey card frames and a matching
+original red web back. Its 146:198 ratio follows the reference's proportions.
+
+Primary references:
+- https://free-spider-solitaire.com/ — exact visual source and rights notice
+- https://www.treecardgames.com/ — publisher
+- https://github.com/htdebeer/SVG-cards — prior LGPL deck, retained separately
+- https://github.com/KDE/libkdegames/tree/master/src/carddecks — alternatives
+- https://commons.wikimedia.org/wiki/File:Atlas_deck_queen_of_hearts.svg — alternative

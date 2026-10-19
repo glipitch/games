@@ -1,0 +1,18 @@
+Little Clicks — original Spider card deck, October 2026
+
+Six original court portraits generated with OpenAI's built-in image generation
+tool. Hearts use crimson and gold; spades use cobalt, turquoise and gold.
+Each portrait is mirrored by code for an exact 180-degree counterpart.
+
+Card frames, corner marks, pip layouts, shaded suit shapes and red web backs
+are constructed as SVG. Rank outlines are rendered from Times New Roman;
+no font software is distributed. Court illustrations are high-resolution
+embedded images; the frames, ranks and pips remain vectors at every size.
+
+The visual reference was the Modern deck at free-spider-solitaire.com,
+published by TreeCardGames. That site states "All rights reserved."
+Its card images, code and backgrounds are not included in this deck.
+The new art is original, not licensed from or endorsed by TreeCardGames.
+
+Source artwork and generation prompts are retained in the project repository
+under asset-sources/courts. build-spider-cards.mjs builds the 26 faces.

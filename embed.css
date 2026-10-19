@@ -1,0 +1,15 @@
+/* Only adjust the surrounding layout when a game appears in the collection. */
+.embedded body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.embedded .all-games,.embedded .all-games-link,.embedded .circuit-link,.embedded .game-list,.embedded .site-footer,.embedded footer,.embedded .under-game,.embedded .below-card{display:none!important}
+.embedded .shell,.embedded .page-shell{max-width:none;padding:0 22px 18px}
+.embedded .site-header,.embedded .header{height:59px;min-height:59px;max-width:720px;margin:0 auto;border-bottom:1px solid #b1bfcd}
+.embedded .collection-logo,.embedded .brand{font-size:24px}
+.embedded .collection-logo #game-title{font-family:system-ui,sans-serif;font-size:24px}
+.embedded .header-right{margin-left:auto}.embedded .site-header>#help{margin-left:auto}
+.embedded .play-layout{display:block;max-width:500px;margin:18px auto 0}
+.embedded .game-layout{margin:18px auto 0}
+.embedded .circuit-shell{max-width:660px}
+.embedded .circuit-shell header{min-height:59px}
+.embedded .circuit-shell .round-button{margin-left:auto}
+.embedded .table{margin-top:8px}
+@media(max-width:640px){.embedded .shell,.embedded .page-shell{padding:0 12px 14px}.embedded .site-header,.embedded .header,.embedded .circuit-shell header{height:49px;min-height:49px}.embedded .play-layout,.embedded .game-layout{margin-top:12px}.embedded .collection-logo #game-title{font-size:22px}}

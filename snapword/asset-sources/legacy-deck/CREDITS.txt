@@ -1,0 +1,8 @@
+SVG-cards by David Bellot and Huub de Beer. LGPL-2.1.
+Project: https://github.com/htdebeer/SVG-cards
+Original SVG source: source.svg (unmodified).
+Licence: LICENSE.txt. Authors: AUTHORS.txt.
+The 26 heart/spade SVG files are self-contained extracts of card groups and their dependencies.
+Extracted for Little Clicks on 16 October 2026, with modifications described below.
+The red web card back (back.svg) is original Little Clicks artwork and is not part of SVG-cards.
+Number-card pip shading and a light curved gloss overlay were added to these extracted cards for Little Clicks. The original source.svg is unchanged.

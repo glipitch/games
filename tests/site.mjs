@@ -21,6 +21,14 @@ try {
       if (viewport.width > 640) await page.locator(`[data-game="${id}"]`).click();
       else await page.locator('#game-picker').selectOption(id);
       await page.waitForFunction(id => location.hash === '#' + id, id);
+      await page.waitForFunction(id => document.querySelector('nav [aria-current]')?.dataset.game === id, id);
+      await page.waitForFunction(() => {
+        const iframe = document.querySelector('#game-frame');
+        const expected = new URL(iframe.src), actual = new URL(iframe.contentWindow.location.href);
+        return actual.pathname === expected.pathname && actual.searchParams.get('game') === expected.searchParams.get('game')
+          && (!expected.searchParams.has('variant') || actual.searchParams.get('variant') === expected.searchParams.get('variant'))
+          && iframe.contentDocument.readyState === 'complete';
+      });
       const frame = page.frameLocator('#game-frame');
       await frame.locator('html.embedded').waitFor();
       await frame.locator(id === 'sudoku' ? '#camera' : id === 'snapword' ? '#play-area button' : id === 'spider' ? '.card' : id === 'circuit' ? '.tile' : '#game-content button').first().waitFor();

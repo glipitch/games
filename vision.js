@@ -456,7 +456,9 @@ export async function recognize(grid, onProgress, signal, { verify = false } = {
       clearTimeout(cleanupTimer); await worker.terminate();
     }, () => {});
   };
-  const abort = () => { stop(); rejectAbort(signal.reason); };
+  // Cancelling before the first OCR job need not throw away an engine that is
+  // still loading. Manual capture can reuse that warmup for its next read.
+  const abort = () => { if (pending) stop(); rejectAbort(signal.reason); };
   signal.addEventListener('abort', abort, { once: true });
   try {
     grid = suppressPatternNoise(grid);

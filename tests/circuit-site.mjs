@@ -60,11 +60,14 @@ try{
  for(let i=0;i<9&&await frame.locator('#result').isHidden();i++)await frame.locator('#hint').click();
  assert.ok(await frame.locator('#result').isVisible());assert.equal(await frame.locator('#powered').innerText(),'9/9');assert.equal(await frame.locator('.loose').count(),0);
  await frame.locator('#share').click();
+ await frame.locator('#toast').filter({hasText:'Puzzle and result copied'}).waitFor();
  const share=await page.evaluate(()=>navigator.clipboard.readText());const link=share.match(/https?:\/\/\S+/)[0];assert.ok(link.endsWith('#circuit/mesh/3/99'));
  const peer=await browser.newContext(),peerPage=await peer.newPage();await peerPage.goto(link);
  const peerFrame=peerPage.frameLocator('#game-frame');await peerFrame.locator('.tile').first().waitFor();assert.equal(await peerFrame.locator('#moves').innerText(),'0');
  assert.ok(await peerFrame.locator('#result').isHidden());assert.equal(await peerFrame.locator('#puzzle-label').innerText(),'Shared puzzle');
- await frame.locator('#next').click();assert.ok(!page.url().endsWith('/99'));assert.equal(await frame.locator('#moves').innerText(),'0');
+ await frame.locator('#next').click();
+ await page.waitForFunction(()=>/^#circuit\/mesh\/3\/\d+$/.test(location.hash)&&!location.hash.endsWith('/99'));
+ assert.equal(await frame.locator('#moves').innerText(),'0');
  await context.close();await peer.close();
  // A saved old daily becomes an ordinary board without changing its progress.
  const old=dailyCircuit('2026-10-15');applyTurn(old,0);

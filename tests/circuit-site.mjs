@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {chromium} from '../sudoku/node_modules/playwright/index.mjs';
 import {mkdir,writeFile} from 'node:fs/promises';
-import {variants,sizes,dailyCircuit,applyTurn} from '../snapword/dist/circuit-engine.js';
+import {variants,sizes,makeCircuit,dailyCircuit,applyTurn} from '../snapword/dist/circuit-engine.js';
 
 const base=process.env.TEST_URL||'http://127.0.0.1:4173/games/';
 const output=new URL('../test-results/',import.meta.url);
@@ -22,6 +22,8 @@ try{
   const initial=await frame.locator('body').evaluate(()=>({board:document.querySelector('#board').getBoundingClientRect().bottom,tools:document.querySelector('#tools').getBoundingClientRect().bottom,height:innerHeight}));
   assert.ok(initial.board<=initial.height&&initial.tools<=initial.height,`Board and playing controls fit without a focus button: ${JSON.stringify({viewport,initial})}`);
   assert.equal(await frame.locator('#daily,#free,.mode-tabs,.daily-foot,#mode-explanation').count(),0);
+  assert.equal(await frame.locator('#pin-mode,.pin-mark,.pinned').count(),0);
+  assert.deepEqual(await frame.locator('#tools button').allTextContents(),['↶ Undo','✧ Hint']);
   assert.equal(await frame.locator('#variants button').count(),6);
   assert.equal(await frame.locator('#size option').count(),8);
   assert.equal(await frame.locator('html').getAttribute('data-theme'),theme);
@@ -41,13 +43,11 @@ try{
   await frame.locator('#board-viewport').evaluate(el=>{if(el.scrollWidth>el.clientWidth+1)throw Error('Fit should remove horizontal board scrolling');});
   await frame.locator('#continue').click();
   await page.screenshot({path:new URL(`circuit-${theme}-${viewport.width}x${viewport.height}.png`,output).pathname.replace(/^\/([A-Za-z]:)/,'$1'),fullPage:true});
-  // Notes, turns, reverse turns, size/mode changes and refresh all preserve state.
+  // Turns, reverse turns, size/mode changes and refresh all preserve state.
   await configure();await frame.locator('[data-variant="classic"]').click();await frame.locator('#size').selectOption('5');await frame.locator('#continue').click();
   const index=await frame.locator('.tile[aria-disabled="false"]').first().getAttribute('data-tile');
   const tile=frame.locator(`.tile[data-tile="${index}"]`);await tile.click();assert.equal(await frame.locator('#moves').innerText(),'1');
-  await tile.press('p');assert.ok((await tile.getAttribute('class')).includes('pinned'));
-  await frame.locator('#pin-mode').click();await tile.click();assert.ok(!(await tile.getAttribute('class')).includes('pinned'));
-  await frame.locator('#pin-mode').click();await tile.press('r');assert.equal(await frame.locator('#moves').innerText(),'2');
+  await tile.press('r');assert.equal(await frame.locator('#moves').innerText(),'2');
   await frame.locator('#undo').click();assert.equal(await frame.locator('#moves').innerText(),'1');
   await configure();await frame.locator('#size').selectOption('6');await frame.locator('[data-variant="mesh"]').click();
   await frame.locator('[data-variant="classic"]').click();await frame.locator('#size').selectOption('5');
@@ -87,8 +87,20 @@ try{
  const migratedPage=await migratedContext.newPage();await migratedPage.goto(base+'#circuit/classic');
  const migrated=migratedPage.frameLocator('#game-frame');await migrated.locator('.tile').first().waitFor();assert.equal(await migrated.locator('#size').inputValue(),'4');assert.equal(await migrated.locator('#moves').innerText(),String(old.moves));
  await migratedContext.close();
+ // Existing user pins must not block rotation or leave note-only undo steps.
+ const pinnedSave=makeCircuit(5,91,'play','','classic'),formerlyPinned=pinnedSave.base.findIndex(m=>m!==15);
+ applyTurn(pinnedSave,formerlyPinned);pinnedSave.pinned=pinnedSave.base.map(()=>true);
+ pinnedSave.history.push({turns:[...pinnedSave.turns],moves:pinnedSave.moves,pinned:pinnedSave.base.map(()=>false)});
+ const oldContext=await browser.newContext();await oldContext.addInitScript(board=>{if(!localStorage.getItem('circuit:v3:classic:5'))localStorage.setItem('circuit:v3:classic:5',JSON.stringify(board));},pinnedSave);
+ const oldPage=await oldContext.newPage();await oldPage.goto(base+'#circuit/classic/5');
+ const oldFrame=oldPage.frameLocator('#game-frame');await oldFrame.locator('.tile').first().waitFor();assert.equal(await oldFrame.locator('#moves').innerText(),'1');
+ const oldTile=oldFrame.locator(`[data-tile="${formerlyPinned}"]`);await oldTile.click();assert.equal(await oldFrame.locator('#moves').innerText(),'2');
+ await oldFrame.locator('#undo').click();assert.equal(await oldFrame.locator('#moves').innerText(),'1');await oldFrame.locator('#undo').click();assert.equal(await oldFrame.locator('#moves').innerText(),'0');assert.ok(await oldFrame.locator('#undo').isDisabled());
+ await oldTile.press('p');await oldTile.dispatchEvent('contextmenu');assert.equal(await oldFrame.locator('#moves').innerText(),'0');assert.equal(await oldFrame.locator('.pinned,.pin-mark').count(),0);
+ const stored=await oldPage.evaluate(()=>JSON.parse(localStorage.getItem('circuit:v3:classic:5')));assert.equal('pinned' in stored,false);
+ await oldContext.close();
  // The standalone page must also load independently of the collection shell.
  const standalone=await browser.newPage();await standalone.goto(new URL('library/circuit.html?variant=barriers&size=10&seed=17',base).href);await standalone.locator('.tile').first().waitFor();assert.equal(await standalone.locator('.tile').count(),100);await standalone.close();
  await writeFile(new URL('circuit-site-report.json',output),JSON.stringify(reports,null,2));
- console.log('Circuit passed all 48 combinations, light/dark portrait and landscape layouts, zoom, pins, persistence, migration, hints, completion and reproducible sharing.');
+ console.log('Circuit passed all 48 combinations, light/dark layouts, zoom, persistence, legacy pin removal, migration, hints, completion and reproducible sharing.');
 }finally{await browser.close();}

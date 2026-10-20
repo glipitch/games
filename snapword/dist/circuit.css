@@ -37,14 +37,10 @@ button:focus-visible,a:focus-visible,select:focus-visible,.board-viewport:focus-
 .tile:hover:not([aria-disabled=true]){outline:2px solid #3974d4;outline-offset:-3px}
 .tile[aria-disabled=true]{cursor:default}
 .tile:focus-visible{outline:3px solid #3981e4;outline-offset:-3px;z-index:3}
-.fixed-mark,.pin-mark{position:absolute;right:3px;top:3px;background:#fff;color:#233952;border:1px solid #7b91a9;border-radius:3px;width:clamp(10px,22%,20px);aspect-ratio:1;display:grid;place-items:center}
-.lock-icon,.pin-icon{height:13px;width:13px;stroke:currentColor;stroke-width:2;fill:none;display:block}
-.fixed-mark .lock-icon,.pin-mark .pin-icon{width:80%;height:80%}
+.fixed-mark{position:absolute;right:3px;top:3px;background:#fff;color:#233952;border:1px solid #7b91a9;border-radius:3px;width:clamp(10px,22%,20px);aspect-ratio:1;display:grid;place-items:center}
+.lock-icon{height:13px;width:13px;stroke:currentColor;stroke-width:2;fill:none;display:block}
+.fixed-mark .lock-icon{width:80%;height:80%}
 .tile.fixed{box-shadow:inset 0 0 0 2px #e6edf5}
-.pin-mark{display:none;background:#d9e8f8;color:#164c7c;top:auto;bottom:3px}
-.pinned .pin-mark{display:grid}
-.tile.pinned{box-shadow:inset 0 0 0 2px #88b9ec}
-.pinning .tile:not(.fixed){cursor:crosshair}
 .network-tag{position:absolute;left:2px;top:2px;width:clamp(9px,22%,17px);aspect-ratio:1;display:grid;place-items:center;border-radius:2px;font-size:clamp(7px,1.6vw,10px);font-weight:800;background:#ffe16a;color:#483000;border:1px solid #826816}
 .network-1 .network-tag{background:#9ee4ff;color:#073f56;border-color:#39809b}
 .short-mark,.loose-mark{display:none;position:absolute;right:2px;bottom:2px;background:#a81932;color:#fff;font-size:clamp(9px,2vw,17px);font-weight:800;border-radius:50%;width:clamp(10px,23%,20px);aspect-ratio:1;place-items:center;line-height:1}
@@ -64,7 +60,6 @@ button:focus-visible,a:focus-visible,select:focus-visible,.board-viewport:focus-
 .circuit-shell .tools{display:flex;justify-content:center;gap:10px;margin:12px 0 0}
 html .circuit-shell .tools button{background:transparent;border:1px solid transparent;border-radius:7px;min-width:95px;min-height:42px;padding:8px 14px;font-size:12px;font-weight:550;color:var(--muted)}
 html .circuit-shell .tools button:hover:enabled{background:var(--soft);border-color:var(--line);color:var(--ink)}
-.circuit-shell #pin-mode[aria-pressed=true]{background:var(--soft);border-color:#82acd4;color:var(--ink)}
 .live-state{text-align:center;font-size:11px;line-height:1.5;color:var(--muted);margin-top:6px}.live-state.warning{color:#ba3549}
 #hint-message{font-size:12px;line-height:1.6;color:var(--ink);padding:10px;border:1px solid var(--line);border-radius:7px;background:var(--soft);margin:10px 0 0}
 #result{text-align:center;padding:14px 0 0}#result h2{font-size:20px;font-weight:700;margin:0 0 6px}#result p{font-size:12px;color:var(--muted);line-height:1.7;margin:0 0 11px}
@@ -94,13 +89,13 @@ dialog::backdrop{background:#16263899;backdrop-filter:blur(3px)}
 #toast{position:fixed;left:50%;bottom:18px;transform:translate(-50%,10px);background:#162b3e;color:#fff;border:1px solid #627f93;border-radius:7px;padding:10px 17px;font-size:13px;opacity:0;pointer-events:none;transition:.15s;z-index:10;max-width:calc(100% - 24px);text-align:center}#toast.visible{transform:translate(-50%,0);opacity:1}
 .hint-flash{animation:flashHint .6s ease 2}.board.won{border-color:#507b24;background:#9ebf74}@keyframes flashHint{50%{box-shadow:inset 0 0 0 4px #3981e4}}
 @media(max-width:1100px){.embedded .circuit-shell header{padding-left:82px}}
-@media(max-width:540px){.circuit-shell{padding:0 10px 14px}.circuit-shell header{min-height:52px;margin-bottom:0;gap:6px}.circuit-brand{font-size:21px}.circuit-brand>span{display:none}#settings-toggle{font-size:11px;padding:6px;gap:6px}.play-heading{align-items:center;gap:8px;min-height:44px;margin-bottom:2px}#goal{font-size:11px;max-width:50%}.circuit-shell .metrics{gap:10px}.circuit-shell .metrics span{font-size:9px}.board{gap:2px;padding:3px}.tile{border-radius:3px}.circuit-shell .tools{gap:7px;margin-top:8px}html .circuit-shell .tools button{min-width:82px;padding:8px}.fixed-mark{right:1px;top:1px}.network-tag{left:1px;top:1px}.pin-mark{bottom:1px;right:1px}.wall-top,.wall-bottom{height:3px}.wall-left,.wall-right{width:3px}dialog{padding:18px}.settings-row{gap:8px}.size-control{gap:6px}.size-control label{font-size:11px}}
+@media(max-width:540px){.circuit-shell{padding:0 10px 14px}.circuit-shell header{min-height:52px;margin-bottom:0;gap:6px}.circuit-brand{font-size:21px}.circuit-brand>span{display:none}#settings-toggle{font-size:11px;padding:6px;gap:6px}.play-heading{align-items:center;gap:8px;min-height:44px;margin-bottom:2px}#goal{font-size:11px;max-width:50%}.circuit-shell .metrics{gap:10px}.circuit-shell .metrics span{font-size:9px}.board{gap:2px;padding:3px}.tile{border-radius:3px}.circuit-shell .tools{gap:7px;margin-top:8px}html .circuit-shell .tools button{min-width:82px;padding:8px}.fixed-mark{right:1px;top:1px}.network-tag{left:1px;top:1px}.wall-top,.wall-bottom{height:3px}.wall-left,.wall-right{width:3px}dialog{padding:18px}.settings-row{gap:8px}.size-control{gap:6px}.size-control label{font-size:11px}}
 @media(orientation:landscape) and (max-height:550px){
  .circuit-shell{padding-bottom:8px}.circuit-shell header{min-height:42px;margin-bottom:0}.circuit-shell main{width:100%;max-width:900px}
  .circuit-shell .game-body{display:grid;grid-template-columns:minmax(0,calc(100dvh - 76px)) 170px;grid-template-rows:auto auto auto auto;gap:8px 22px;justify-content:center;align-items:start;padding-top:6px}
  .board-area{grid-column:1;grid-row:1/span 5;width:100%;margin:0}.board-viewport{max-height:calc(100dvh - 76px)}
  .play-heading{grid-column:2;grid-row:1;display:block;margin:0;min-height:0}#goal{max-width:none;font-size:12px}.circuit-shell .metrics{margin-top:9px;gap:12px}
- .circuit-shell .tools{grid-column:2;grid-row:2;display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin:0}html .circuit-shell .tools button{min-width:0;padding:6px 2px;min-height:38px;font-size:11px}
+ .circuit-shell .tools{grid-column:2;grid-row:2;display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:0}html .circuit-shell .tools button{min-width:0;padding:6px 2px;min-height:38px;font-size:11px}
  #hint-message{grid-column:2;grid-row:3;margin:0;padding:6px;font-size:11px}#status{grid-column:2;grid-row:4;margin:0}#result{grid-column:2;grid-row:2/span 4;padding:0}#result h2{font-size:16px}.result-actions{grid-template-columns:1fr;gap:5px}
  #board-tip{font-size:10px;margin-top:4px}.circuit-brand{font-size:21px}dialog{padding:16px}.modal-top{margin-bottom:12px}.variant-tabs{margin-bottom:12px}.variant-tabs button{min-height:36px}.settings-note{margin:6px 0}
 }

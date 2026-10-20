@@ -32,7 +32,6 @@ html[data-theme=dark] .result h2,html[data-theme=dark] .result-stat strong{color
 /* Circuit controls share the collection theme. */
 
 html[data-theme=dark] .size-control select,html[data-theme=dark] .new-button,html[data-theme=dark] .board-view button{background:var(--ui-soft);color:var(--ui-text);border-color:var(--ui-line)}
-html[data-theme=dark] #pin-mode[aria-pressed=true]{background:#284969;color:#d6eaff;border-color:#82acd4}
 
 
 /* Keep a small, consistent place for the collection menu beside game titles. */

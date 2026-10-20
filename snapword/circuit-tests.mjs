@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {variants,sizes,makeCircuit,dailyCircuit,flow,solved,hint,nextHint,deductions,applyTurn,togglePin,undo,reset,validBoard,neighbours,rotate} from './dist/circuit-engine.js';
+import {variants,sizes,makeCircuit,dailyCircuit,flow,solved,hint,nextHint,deductions,applyTurn,undo,reset,validBoard,neighbours,rotate} from './dist/circuit-engine.js';
 import {circuitStorage} from './dist/circuit-storage.js';
 import {dailyCircuit as legacyDaily} from './dist/signal-engine.js';
 test('legacy daily sequences stay deterministic and independent',()=>{
@@ -45,13 +45,21 @@ test('Barriers are reciprocal walls that block flow without blocking the generat
  assert.deepEqual([...flow(blocked).lit],[0]);
 });
 
-test('pins protect rotations, undo restores notes, and hints unpin the tile they explain',()=>{
- const b=makeCircuit(8,91,'play','','barriers'),h=nextHint(b),i=h.index;
- assert.ok(togglePin(b,i));assert.equal(applyTurn(b,i),false);assert.equal(b.moves,0);
- assert.ok(nextHint(b).text.includes('pin was removed'));assert.equal(hint(b),i);assert.equal(b.pinned[i],false);
- assert.ok(undo(b));assert.equal(b.pinned[i],true);assert.equal(b.moves,0);
- assert.ok(undo(b));assert.equal(b.pinned[i],false);
- togglePin(b,i);reset(b);assert.ok(b.pinned.every(p=>!p));assert.deepEqual(b.turns,b.initial);
+test('retired pins are discarded without losing regular or shared puzzles and move history',()=>{
+ for(const shared of [false,true]){
+  const storage=memoryStorage(),cache=circuitStorage(storage),b=makeCircuit(8,91,'play','','barriers'),i=nextHint(b).index;
+  applyTurn(b,i);const progress=[...b.turns];
+  b.pinned=b.base.map(()=>true);b.history[0].pinned=b.base.map(()=>false);
+  b.history.push({turns:[...b.turns],moves:b.moves,pinned:b.base.map(()=>false)});
+  b.history.push({turns:[...b.turns],moves:b.moves,pinned:[...b.pinned]});
+  cache.save(b,shared);
+  const restored=cache.load('barriers',8,shared?91:undefined);
+  assert.equal(restored.seed,91);assert.deepEqual(restored.turns,progress);assert.equal(restored.moves,1);
+  assert.equal('pinned' in restored,false);assert.equal(restored.history.length,1);assert.equal('pinned' in restored.history[0],false);
+  assert.ok(applyTurn(restored,i),'Formerly pinned tiles rotate normally');assert.equal(restored.moves,2);
+  assert.ok(undo(restored));assert.deepEqual(restored.turns,progress);assert.equal(restored.moves,1);
+  assert.ok(undo(restored));assert.deepEqual(restored.turns,restored.initial);assert.equal(restored.moves,0);assert.equal(restored.history.length,0);
+ }
 });
 
 test('deduction domains retain every valid small-board solution',()=>{
@@ -69,10 +77,10 @@ test('deduction domains retain every valid small-board solution',()=>{
 });
 
 function memoryStorage(){const entries=new Map();return {get length(){return entries.size;},key:i=>[...entries.keys()][i],getItem:key=>entries.get(key)??null,setItem:(key,value)=>entries.set(key,value)};}
-test('progress persists independently by mode and size, including pins and undo',()=>{
+test('progress and undo persist independently by mode and size',()=>{
  const storage=memoryStorage(),cache=circuitStorage(storage);
- for(const v of variants)for(const size of sizes){const b=makeCircuit(size,73,'play','',v.id);const i=b.base.findIndex((m,i)=>m!==15&&!b.locked[i]);applyTurn(b,i);togglePin(b,i);cache.save(b);}
- for(const v of variants)for(const size of sizes){const b=cache.load(v.id,size);assert.equal(b.size,size);assert.equal(b.variant,v.id);assert.equal(b.seed,73);assert.equal(b.moves,1);assert.ok(b.pinned.some(Boolean));assert.ok(undo(b));assert.ok(b.pinned.every(p=>!p));assert.ok(undo(b));assert.deepEqual(b.turns,b.initial);}
+ for(const v of variants)for(const size of sizes){const b=makeCircuit(size,73,'play','',v.id);const i=b.base.findIndex((m,i)=>m!==15&&!b.locked[i]);applyTurn(b,i);cache.save(b);}
+ for(const v of variants)for(const size of sizes){const b=cache.load(v.id,size);assert.equal(b.size,size);assert.equal(b.variant,v.id);assert.equal(b.seed,73);assert.equal(b.moves,1);assert.ok(undo(b));assert.deepEqual(b.turns,b.initial);}
 });
 test('old Circuit and Signal progress is copied into play while the originals are retained',()=>{
  for(const prefix of ['circuit:v2:classic:','signal:v1:']){
@@ -90,7 +98,7 @@ test('shared puzzles reproduce the seed and keep their progress away from the re
 });
 test('corrupt saves are rejected and unavailable storage does not prevent play',()=>{
  const storage=memoryStorage(),cache=circuitStorage(storage),b=makeCircuit(4,5,'play','','locked');
- for(const mutation of [b=>b.turns.pop(),b=>b.history.push({turns:[],moves:0}),b=>b.pinned=['yes'],b=>b.locked=['yes'],b=>b.sources=[999],b=>b.won=true]){
+ for(const mutation of [b=>b.turns.pop(),b=>b.history.push({turns:[],moves:0}),b=>b.locked=['yes'],b=>b.sources=[999],b=>b.won=true]){
   const bad=structuredClone(b);mutation(bad);assert.equal(validBoard(bad,'play','','locked'),false);
  }
  storage.setItem('circuit:v3:locked:4','{bad json');assert.ok(validBoard(cache.load('locked',4),'play','','locked'));

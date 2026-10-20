@@ -19,7 +19,7 @@ for (const folder of ['library', 'sudoku']) {
     if (name.endsWith('.html')) {
       let html = await readFile(file, 'utf8');
       html = html.replace('<head>', '<head><script src="../theme.js?v=2"></script><link rel="stylesheet" href="../fonts.css?v=2">');
-      const shared = '<link rel="stylesheet" href="./embed.css?v=4"><script src="./embed.js?v=4"></script>';
+      const shared = '<link rel="stylesheet" href="./embed.css?v=5"><script src="./embed.js?v=4"></script>';
       html = name === 'circuit.html' ? html.replace('<link rel="icon"', shared + '<link rel="icon"') : html.replace('</head>', shared + '</head>');
       html = html.replaceAll('All 9 games', 'All games').replaceAll('all nine games', 'all games').replaceAll('9 games ↗', 'games ↗');
       await writeFile(file, html);

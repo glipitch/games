@@ -1,6 +1,15 @@
-import {makeCircuit,validBoard,sizes,variants} from './circuit-engine.js?v=7';
+import {makeCircuit,validBoard,sizes,variants} from './circuit-engine.js?v=9';
 
 const prefix='circuit:v3:';
+function restoreBoard(board){
+ // Drop retired player pins and their note-only undo entries, keeping moves.
+ const {pinned,...rest}=board;
+ rest.history=board.history.filter((snapshot,i)=>{
+  const next=board.history[i+1]||board;
+  return snapshot.moves!==next.moves||snapshot.turns.some((turn,j)=>turn!==next.turns[j]);
+ }).map(({pinned,...snapshot})=>snapshot);
+ return rest;
+}
 export function circuitStorage(storage){
  let available=true;
  function get(key,fallback=null){try{return JSON.parse(storage.getItem(key))??fallback;}catch{return fallback;}}
@@ -24,10 +33,10 @@ export function circuitStorage(storage){
   saveSettings(variant,size){set(prefix+'settings',{variant,size});},
   load(variant,size,seed){
    const saved=get(boardKey(variant,size,seed));
-   if(validBoard(saved,'play','',variant)&&saved.size===size&&(seed===undefined||saved.seed===seed))return saved;
+   if(validBoard(saved,'play','',variant)&&saved.size===size&&(seed===undefined||saved.seed===seed))return restoreBoard(saved);
    // Copy old progress; retain the original saves for older open tabs.
    const old=seed===undefined?legacy(variant,size):get(boardKey(variant,size));
-   if(old&&old.size===size&&(seed===undefined||old.seed===seed)&&validBoard(old,old.mode,old.key,variant))return {...old,mode:'play',key:'',variant};
+   if(old&&old.size===size&&(seed===undefined||old.seed===seed)&&validBoard(old,old.mode,old.key,variant))return {...restoreBoard(old),mode:'play',key:'',variant};
    return makeCircuit(size,seed??crypto.getRandomValues(new Uint32Array(1))[0],'play','',variant);
   },
   save(board,shared=false){set(boardKey(board.variant,board.size,shared?board.seed:undefined),board);},

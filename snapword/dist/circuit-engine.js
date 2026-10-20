@@ -68,18 +68,14 @@ export function dailyCircuit(key,variant='classic'){
  return makeCircuit(4,92653+dayNumber(key)*7919+v.offset,'daily',key,variant);
 }
 export function applyTurn(board,index,delta=1){
- if(board.won||!Number.isInteger(index)||index<0||index>=board.base.length||board.locked?.[index]||board.pinned?.[index]||rotate(board.base[index])===board.base[index])return false;
+ if(board.won||!Number.isInteger(index)||index<0||index>=board.base.length||board.locked?.[index]||rotate(board.base[index])===board.base[index])return false;
  remember(board);board.turns[index]+=delta;board.moves++;board.started=true;board.won=solved(board);return true;
 }
-function remember(board){board.history.push({turns:[...board.turns],moves:board.moves,pinned:[...(board.pinned||board.base.map(()=>false))]});}
-export function togglePin(board,index){
- if(board.won||!Number.isInteger(index)||index<0||index>=board.base.length||board.locked?.[index]||board.base[index]===15)return false;
- remember(board);board.pinned??=board.base.map(()=>false);board.pinned[index]=!board.pinned[index];return true;
-}
-export function undo(board){if(board.won||!board.history.length)return false;const h=board.history.pop();board.turns=h.turns;board.moves=h.moves;board.pinned=h.pinned||board.base.map(()=>false);return true;}
-export function reset(board){if(board.won)return false;board.turns=[...board.initial];board.pinned=board.base.map(()=>false);board.moves=0;board.hints=0;board.history=[];board.elapsed=0;board.started=false;return true;}
+function remember(board){board.history.push({turns:[...board.turns],moves:board.moves});}
+export function undo(board){if(board.won||!board.history.length)return false;const h=board.history.pop();board.turns=h.turns;board.moves=h.moves;return true;}
+export function reset(board){if(board.won)return false;board.turns=[...board.initial];board.moves=0;board.hints=0;board.history=[];board.elapsed=0;board.started=false;return true;}
 // Arc consistency over orientation domains gives deductions without consulting
-// the generated answer. Player pins are notes, not constraints on a valid answer.
+// the generated answer.
 export function deductions(board){
  const links=board.base.map((_,i)=>neighbours(board,i)),groups=board.groups||board.base.map(()=>0);
  const domains=board.base.map((mask,i)=>{
@@ -99,22 +95,22 @@ export function nextHint(board){
  const forced=board.base.findIndex((m,i)=>!board.locked?.[i]&&domains[i].length===1&&rotate(m,board.turns[i])!==domains[i][0]);
  const index=forced>=0?forced:(wrong.find(i=>lit.has(i))??wrong[0]);if(index===undefined)return null;
  const mask=forced>=0?domains[index][0]:board.base[index],ports=['north','east','south','west'].filter((_,j)=>mask&(1<<j)).join(', ');
- return {index,mask,kind:forced>=0?'deduction':'reveal',text:`Row ${Math.floor(index/board.size)+1}, column ${index%board.size+1}: ${forced>=0?'the edges and neighbouring wire shapes force':'one valid solution uses'} wires ${ports}.${board.pinned?.[index]?' Your pin was removed.':''}`};
+ return {index,mask,kind:forced>=0?'deduction':'reveal',text:`Row ${Math.floor(index/board.size)+1}, column ${index%board.size+1}: ${forced>=0?'the edges and neighbouring wire shapes force':'one valid solution uses'} wires ${ports}.`};
 }
 export function hint(board){
  const h=nextHint(board);if(!h)return -1;
- remember(board);const i=h.index;if(board.pinned)board.pinned[i]=false;
+ remember(board);const i=h.index;
  while(rotate(board.base[i],board.turns[i])!==h.mask)board.turns[i]++;
  board.moves++;board.hints++;board.started=true;board.won=solved(board);return i;
 }
 export function validBoard(board,mode,key,variant='classic'){
  if(!board||board.version!==1||board.mode!==mode||board.key!==key||!Number.isInteger(board.seed)||!variants.some(v=>v.id===variant)||(board.variant||'classic')!==variant||!sizes.includes(board.size))return false;
  const count=board.size*board.size,ints=(a,min,max)=>Array.isArray(a)&&a.length===count&&a.every(v=>Number.isSafeInteger(v)&&v>=min&&v<=max),bools=a=>Array.isArray(a)&&a.length===count&&a.every(v=>typeof v==='boolean');
- if(!ints(board.base,1,15)||!ints(board.turns,-1e7,1e7)||!ints(board.initial,-1e7,1e7)||!Number.isFinite(board.elapsed)||board.elapsed<0||!Number.isSafeInteger(board.moves)||board.moves<0||!Number.isSafeInteger(board.hints)||board.hints<0||typeof board.won!=='boolean'||typeof board.started!=='boolean'||!Array.isArray(board.history)||!board.history.every(h=>h&&ints(h.turns,-1e7,1e7)&&Number.isSafeInteger(h.moves)&&h.moves>=0&&(!h.pinned||bools(h.pinned))))return false;
+ if(!ints(board.base,1,15)||!ints(board.turns,-1e7,1e7)||!ints(board.initial,-1e7,1e7)||!Number.isFinite(board.elapsed)||board.elapsed<0||!Number.isSafeInteger(board.moves)||board.moves<0||!Number.isSafeInteger(board.hints)||board.hints<0||typeof board.won!=='boolean'||typeof board.started!=='boolean'||!Array.isArray(board.history)||!board.history.every(h=>h&&ints(h.turns,-1e7,1e7)&&Number.isSafeInteger(h.moves)&&h.moves>=0))return false;
  const n=board.base.length;
  if(board.groups&&(!Array.isArray(board.groups)||board.groups.length!==n||!board.groups.every(g=>g===0||g===1)))return false;
  if(board.sources&&(!Array.isArray(board.sources)||!board.sources.length||!board.sources.every(i=>Number.isInteger(i)&&i>=0&&i<n)))return false;
- if(board.locked&&!bools(board.locked)||board.pinned&&!bools(board.pinned))return false;
+ if(board.locked&&!bools(board.locked))return false;
  if(variant==='split'&&(!board.groups?.includes(1)||board.sources?.length!==2))return false;
  if(variant==='locked'&&(!board.locked?.some(Boolean)||board.locked.some((v,i)=>v&&rotate(board.base[i],board.turns[i])!==board.base[i])))return false;
  if(variant==='barriers'){

@@ -20,21 +20,19 @@ try {
     assert.equal(await page.locator('html').getAttribute('data-theme'), theme);
     await page.evaluate(async () => { await document.fonts.load('500 16px "DM Sans"'); await document.fonts.load('750 16px Manrope'); });
     assert.ok(await page.evaluate(() => document.fonts.check('500 16px "DM Sans"') && document.fonts.check('750 16px Manrope')), 'Local fonts are loaded');
-    if (viewport.width > 900) {
-      const original = (await page.locator('#game-frame').boundingBox()).width;
-      await page.locator('#sidebar-toggle').click();
-      assert.ok((await page.locator('#game-frame').boundingBox()).width > original + 100, 'Collapsing makes more room for games');
-      await page.reload();
-      assert.equal(await page.locator('#sidebar-toggle').getAttribute('aria-expanded'), 'false');
-      await page.locator('#sidebar-toggle').click();
-      await page.locator('#modes-help').click();
-      assert.ok((await page.locator('#modes-dialog').innerText()).includes('midnight in London'));
-      await page.locator('#close-modes').click();
-      await page.locator('#theme-toggle').click();
-      await page.reload();
-      assert.equal(await page.locator('html').getAttribute('data-theme'), theme === 'dark' ? 'light' : 'dark');
-      await page.locator('#theme-toggle').click();
-    }
+    assert.equal(await page.locator('#game-menu').evaluate(el => el.open), false);
+    assert.equal((await page.locator('#game-frame').boundingBox()).width, viewport.width);
+    await page.locator('#games-toggle').click();
+    await page.locator('#modes-help').click();
+    assert.ok((await page.locator('#modes-dialog').innerText()).includes('midnight in London'));
+    await page.locator('#close-modes').click();
+    await page.locator('#games-toggle').click();
+    await page.locator('#theme-toggle').click();
+    await page.reload();
+    assert.equal(await page.locator('html').getAttribute('data-theme'), theme === 'dark' ? 'light' : 'dark');
+    await page.locator('#games-toggle').click();
+    await page.locator('#theme-toggle').click();
+    await page.locator('#close-games').click();
     assert.equal(await page.locator('nav a').count(), 10);
     const ids = await page.locator('nav a').evaluateAll(links => links.map(link => link.dataset.game));
     for (const id of ids) {
@@ -42,8 +40,8 @@ try {
         localStorage.setItem('clicks:spider:v1', JSON.stringify({state,history:[],elapsed:0}));
         localStorage.setItem('clicks:spider:view', JSON.stringify({wide:true,scale:2.5}));
       }, newGame(42));
-      if (viewport.width > 900) await page.locator(`[data-game="${id}"]`).click();
-      else await page.locator('#game-picker').selectOption(id);
+      await page.locator('#games-toggle').click();
+      await page.locator(`[data-game="${id}"]`).click();
       await page.waitForFunction(id => location.hash.slice(1).split('/')[0] === id, id);
       await page.waitForFunction(id => document.querySelector('nav [aria-current]')?.dataset.game === id, id);
       await page.waitForFunction(() => {
@@ -67,7 +65,9 @@ try {
       });
       await page.screenshot({ path: new URL(`${theme}-${viewport.width}x${viewport.height}-${id}.png`, output).pathname.replace(/^\/([A-Za-z]:)/, '$1'), fullPage: true });
       if (id === 'circuit') {
+        await frame.locator('#settings-toggle').click();
         await frame.locator('#variants button').nth(1).click();
+        await frame.locator('#continue').click();
         await page.waitForFunction(() => location.hash.startsWith('#circuit/wrap/'));
         assert.equal(await frame.locator('#variant-badge').innerText(), 'Wrap');
         await frame.locator('#board button[aria-disabled="false"]').first().click();

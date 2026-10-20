@@ -17,8 +17,9 @@ const pinSvg='<svg class="pin-icon" viewBox="0 0 24 24" aria-hidden="true"><path
 function save(){
  cache.save(board,shared);
  $('#save-status').textContent=cache.available?'Progress saved on this device · Every mode and size keeps its own board':'Saving is unavailable in this browser. Keep this tab open to retain your progress.';
+ $('#save-status').hidden=cache.available;
 }
-function tick(){const now=performance.now();if(board.started&&!board.won&&!document.hidden&&!$('#modal').open)board.elapsed+=Math.min(now-last,2000);last=now;}
+function tick(){const now=performance.now();if(board.started&&!board.won&&!document.hidden&&!$('#modal').open&&!$('#puzzle-settings').open)board.elapsed+=Math.min(now-last,2000);last=now;}
 function route(){
  const url=new URL(location.href);url.searchParams.set('variant',variant);url.searchParams.set('size',size);
  for(const k of ['mode','v'])url.searchParams.delete(k);
@@ -35,9 +36,9 @@ function legend(){
  $('#legend').innerHTML=html;
 }
 function top(){
- $('#variants').innerHTML=variants.map(v=>`<button data-variant="${v.id}" class="${variant===v.id?'active':''}" aria-pressed="${variant===v.id}"><span aria-hidden="true">${v.icon}</span>${v.name}</button>`).join('');
- document.querySelectorAll('[data-variant]').forEach(b=>b.addEventListener('click',()=>switchBoard(b.dataset.variant,size)));
+ document.querySelectorAll('[data-variant]').forEach(b=>{b.classList.toggle('active',b.dataset.variant===variant);b.setAttribute('aria-pressed',b.dataset.variant===variant);});
  $('#goal').textContent=current().goal;$('#variant-badge').textContent=current().name;$('#size').value=size;
+ $('#settings-summary').textContent=current().name+' · '+size+'×'+size;
  $('#puzzle-label').textContent=shared?'Shared puzzle':'Unlimited puzzles';
  $('#hint-message').hidden=true;legend();route();
 }
@@ -59,7 +60,7 @@ function draw(){
    e.preventDefault();document.querySelector(`[data-tile="${j}"]`).focus();
   });
  });
- setZoom(1);$('#board-viewport').scrollTo(0,0);update();
+ update();setZoom(1);$('#board-viewport').scrollTo(0,0);
 }
 function pin(i){tick();if(togglePin(board,i)){save();update();}else if(board.locked?.[i])toast('This tile is fixed');}
 function update(){
@@ -67,6 +68,7 @@ function update(){
  $('#powered').innerHTML=lit.size+'<small>/'+n+'</small>';$('#moves').textContent=board.moves;
  $('#status').textContent=board.won?'✓ Complete':shorts.size?'× Networks crossed':variant==='mesh'&&loose.size?loose.size+' loose tiles':'● Live';
  $('#status').classList.toggle('warning',shorts.size>0);$('#board').classList.toggle('won',board.won);$('#board').classList.toggle('pinning',pinMode);
+ $('#status').hidden=!board.won&&!shorts.size&&!(variant==='mesh'&&loose.size);
  document.querySelectorAll('[data-tile]').forEach((el,i)=>{
   el.classList.toggle('powered',lit.has(i));el.classList.toggle('short-circuit',shorts.has(i));el.classList.toggle('loose',variant==='mesh'&&loose.has(i));el.classList.toggle('pinned',Boolean(board.pinned?.[i]));el.querySelector('.wires').style.transform=`rotate(${board.turns[i]*90}deg)`;
   el.setAttribute('aria-disabled',board.won||Boolean(board.locked?.[i])||board.base[i]===15||Boolean(board.pinned?.[i])&&!pinMode);
@@ -85,6 +87,7 @@ function switchBoard(v,s){
  tick();save();variant=v;size=s;shared=false;board=cache.load(variant,size);cache.saveSettings(variant,size);pinMode=false;$('#pin-mode').setAttribute('aria-pressed','false');last=performance.now();draw();save();
 }
 function newBoard(){
+ $('#puzzle-settings').close();
  const create=()=>{tick();save();board=makeCircuit(size,crypto.getRandomValues(new Uint32Array(1))[0],'play','',variant);pinMode=false;$('#pin-mode').setAttribute('aria-pressed','false');last=performance.now();draw();save();};
  if(!board.won&&(board.started||board.history.length))confirm('Start a new puzzle?','This replaces your current '+current().name+' '+size+'×'+size+' puzzle.','New puzzle',create);else create();
 }
@@ -105,17 +108,23 @@ function setZoom(value){
  const viewportWidth=$('#board-viewport').clientWidth,gap=parseFloat(getComputedStyle($('#board')).gap)||2;
  const maximum=Math.max(2.5,Math.ceil(((44+gap)*size+12)/viewportWidth*2)/2);
  zoom=Math.max(1,Math.min(maximum,value));$('#board').style.width=(zoom*100)+'%';$('#zoom-out').disabled=zoom===1;$('#zoom-in').disabled=zoom>=maximum;$('#fit').textContent=zoom===1?'Fit':Math.round(zoom*100)+'%';
- $('#board-tip').textContent=zoom>1?'Scroll to explore · Fit shows the whole board':pinMode?'Tap a tile to pin or unpin it · P also works':'Tap to rotate · Pin tiles you are sure about';
+ $('#board-tip').textContent=zoom>1?'Scroll to explore · Fit is in puzzle settings':'Tap a tile to pin or unpin it · P also works';
+ $('#board-tip').hidden=zoom===1&&!pinMode;
 }
+$('#variants').innerHTML=variants.map(v=>`<button data-variant="${v.id}"><span aria-hidden="true">${v.icon}</span>${v.name}</button>`).join('');
+document.querySelectorAll('[data-variant]').forEach(b=>b.addEventListener('click',()=>switchBoard(b.dataset.variant,size)));
+$('#settings-toggle').addEventListener('click',()=>{$('#puzzle-settings').showModal();setZoom(zoom);});
+for(const id of ['close-settings','continue'])$('#'+id).addEventListener('click',()=>$('#puzzle-settings').close());
+$('#puzzle-settings').addEventListener('click',e=>{if(e.target!==$('#puzzle-settings'))return;const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.target.close();});
 $('#size').innerHTML=sizes.map(s=>`<option value="${s}">${s} × ${s}</option>`).join('');
 $('#size').addEventListener('change',e=>switchBoard(variant,Number(e.target.value)));
 $('#new').addEventListener('click',newBoard);
 $('#undo').addEventListener('click',()=>{tick();if(undo(board)){$('#hint-message').hidden=true;save();update();}});
 $('#hint').addEventListener('click',()=>{tick();const explanation=nextHint(board),i=hint(board);if(i>=0){save();update();$('#hint-message').textContent=explanation.text;$('#hint-message').hidden=false;const tile=$(`[data-tile="${i}"]`);tile.classList.remove('hint-flash');tile.scrollIntoView({block:'nearest',inline:'nearest'});requestAnimationFrame(()=>tile.classList.add('hint-flash'));}});
-$('#reset').addEventListener('click',()=>{if(!board.moves&&!board.history.length)return;confirm('Restart this puzzle?','Restore the starting positions and clear your moves, hints and pins.','Restart',()=>{reset(board);save();draw();});});
+$('#reset').addEventListener('click',()=>{if(!board.moves&&!board.history.length)return;$('#puzzle-settings').close();confirm('Restart this puzzle?','Restore the starting positions and clear your moves, hints and pins.','Restart',()=>{reset(board);save();draw();});});
 $('#pin-mode').addEventListener('click',()=>{pinMode=!pinMode;$('#pin-mode').setAttribute('aria-pressed',String(pinMode));setZoom(zoom);update();});
 $('#zoom-out').addEventListener('click',()=>setZoom(zoom-.5));$('#zoom-in').addEventListener('click',()=>setZoom(zoom+.5));$('#fit').addEventListener('click',()=>{setZoom(1);$('#board-viewport').scrollTo(0,0);});
-$('#help').addEventListener('click',()=>open('<h2>Turn the tiles. Connect the power.</h2><p>Tap to rotate clockwise. Shift-click or press R on a focused tile to turn backwards. Use arrow keys to move between tiles.</p><ul><li><b>Classic:</b> connect every tile to the power source.</li><li><b>Wrap:</b> opposite edges of the board connect.</li><li><b>Locked:</b> fixed tiles give you starting clues.</li><li><b>Split:</b> power networks A and B separately. A red × marks a forbidden connection.</li><li><b>Mesh:</b> the network contains loops. Power every tile and connect every wire end. A small circle marks a tile with a loose end.</li><li><b>Barriers:</b> striped walls block connections between adjacent tiles.</li></ul><p>Choose any size from 3×3 to 10×10. Each mode and size keeps its own puzzle. New puzzle replaces only the current board; switching modes or sizes keeps your work.</p><p><b>Pin tiles</b> to protect an orientation you are sure about. Tap again in pin mode to unpin; P or right-click also works. Pins are your notes and can be wrong. Undo restores pins as well as turns.</p><p>Use + to enlarge the tiles and scroll around the board; Fit shows the whole board. Hints explain a forced orientation where possible, otherwise reveal a move from one valid solution. A hint may remove a pin. Some puzzles can have more than one solution; every valid completion counts.</p><p>Progress stays in this browser. Share a completed puzzle to let someone play the same board.</p>'));
+$('#help').addEventListener('click',()=>{$('#puzzle-settings').close();open('<h2>Turn the tiles. Connect the power.</h2><p>Tap to rotate clockwise. Shift-click or press R on a focused tile to turn backwards. Use arrow keys to move between tiles.</p><ul><li><b>Classic:</b> connect every tile to the power source.</li><li><b>Wrap:</b> opposite edges of the board connect.</li><li><b>Locked:</b> fixed tiles give you starting clues.</li><li><b>Split:</b> power networks A and B separately. A red × marks a forbidden connection.</li><li><b>Mesh:</b> the network contains loops. Power every tile and connect every wire end. A small circle marks a tile with a loose end.</li><li><b>Barriers:</b> striped walls block connections between adjacent tiles.</li></ul><p>Choose any size from 3×3 to 10×10. Each mode and size keeps its own puzzle. New puzzle replaces only the current board; switching modes or sizes keeps your work.</p><p><b>Pin tiles</b> to protect an orientation you are sure about. Tap again in pin mode to unpin; P or right-click also works. Pins are your notes and can be wrong. Undo restores pins as well as turns.</p><p>Use + to enlarge the tiles and scroll around the board; Fit shows the whole board. Hints explain a forced orientation where possible, otherwise reveal a move from one valid solution. A hint may remove a pin. Some puzzles can have more than one solution; every valid completion counts.</p><p>Progress stays in this browser. Share a completed puzzle to let someone play the same board.</p>');});
 $('#close').addEventListener('click',()=>$('#modal').close());$('#modal').addEventListener('click',e=>{if(e.target===$('#modal')){const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.target.close();}});
 document.addEventListener('visibilitychange',()=>{last=performance.now();save();});window.addEventListener('pagehide',()=>{tick();save();});
 setInterval(()=>{tick();if(board.started&&!board.won)save();},1000);

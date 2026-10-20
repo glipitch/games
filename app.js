@@ -11,10 +11,10 @@ const games = [
   { id: 'weave', name: 'Weave', symbol: '⋈', path: 'library/play.html?game=weave' }
 ];
 const nav = document.querySelector('#game-index');
-const picker = document.querySelector('#game-picker');
 const frame = document.querySelector('#game-frame');
+const gameMenu = document.querySelector('#game-menu');
+const gamesToggle = document.querySelector('#games-toggle');
 nav.innerHTML = games.map(g => `<a href="#${g.id}" data-game="${g.id}" title="${g.name}" aria-label="${g.name}"><span class="symbol" aria-hidden="true">${g.symbol}</span><span class="nav-label">${g.name}</span></a>`).join('');
-picker.innerHTML = games.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
 let current = '';
 function show() {
   const [id, variant, size, seed] = location.hash.slice(1).split('/');
@@ -27,7 +27,6 @@ function show() {
     if (link.dataset.game === game.id) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   }
-  picker.value = game.id;
   frame.title = game.name;
   document.title = 'games';
   if (route !== current) {
@@ -39,20 +38,13 @@ function show() {
     frame.src = './' + game.path + (selectedVariant ? '?' + query : '');
   }
 }
-picker.addEventListener('change', () => { location.hash = picker.value; });
-const sidebarToggle = document.querySelector('#sidebar-toggle');
-function collapse(value) {
-  document.body.classList.toggle('index-collapsed', value);
-  sidebarToggle.setAttribute('aria-expanded', String(!value));
-  const label = value ? 'Expand game index' : 'Collapse game index';
-  sidebarToggle.setAttribute('aria-label', label);
-  sidebarToggle.title = label;
-}
-try { collapse(localStorage.getItem('games:index-collapsed') === 'true'); } catch {}
-sidebarToggle.addEventListener('click', () => {
-  const value = !document.body.classList.contains('index-collapsed');
-  collapse(value);
-  try { localStorage.setItem('games:index-collapsed', String(value)); } catch {}
+gamesToggle.addEventListener('click', () => gameMenu.showModal());
+document.querySelector('#close-games').addEventListener('click', () => gameMenu.close());
+nav.addEventListener('click', event => { if (event.target.closest('a')) gameMenu.close(); });
+gameMenu.addEventListener('click', event => {
+  if (event.target !== gameMenu) return;
+  const bounds = gameMenu.getBoundingClientRect();
+  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) gameMenu.close();
 });
 const themeToggle = document.querySelector('#theme-toggle');
 function themeLabel() {
@@ -68,7 +60,7 @@ window.addEventListener('games:theme', themeLabel);
 frame.addEventListener('load', themeLabel);
 themeLabel();
 const modesDialog = document.querySelector('#modes-dialog');
-document.querySelector('#modes-help').addEventListener('click', () => modesDialog.showModal());
+document.querySelector('#modes-help').addEventListener('click', () => { gameMenu.close(); modesDialog.showModal(); });
 document.querySelector('#close-modes').addEventListener('click', () => modesDialog.close());
 document.querySelector('.skip').addEventListener('click', event => {
   event.preventDefault();
@@ -79,7 +71,8 @@ window.addEventListener('message', event => {
   if (event.origin !== location.origin || event.source !== frame.contentWindow) return;
   if (event.data?.type === 'games:navigate' && games.some(g => g.id === event.data.id)) location.hash = event.data.id;
   if (event.data?.type === 'games:index') {
-    (matchMedia('(max-width:900px)').matches ? picker : nav.querySelector('[aria-current]')).focus();
+    gameMenu.showModal();
+    nav.querySelector('[aria-current]')?.focus();
   }
   if (event.data?.type === 'games:variant' && current.startsWith('circuit') && (!location.hash || location.hash.slice(1).split('/')[0] === 'circuit') && ['classic', 'wrap', 'locked', 'split', 'mesh', 'barriers'].includes(event.data.variant)) {
     const size = Number(event.data.size), seed = event.data.seed;

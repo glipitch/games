@@ -11,7 +11,7 @@
   <link rel="preload" href="./assets/fonts/dm-sans.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="stylesheet" href="./fonts.css?v=2">
   <link rel="stylesheet" href="./style.css?v=2">
-  <script type="module" src="./app.js?v=2"></script>
+  <script type="module" src="./app.js?v=3"></script>
 </head>
 <body>
   <a class="skip" href="#game">Skip to game</a>
@@ -19,12 +19,12 @@
     <div class="index-head"><h1>games</h1><button id="sidebar-toggle" class="utility-button" aria-label="Collapse game index" aria-expanded="true" title="Collapse game index"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16m7-12-4 4 4 4"/></svg></button></div>
     <nav id="game-index" aria-label="Games"></nav>
     <label class="mobile-picker">Choose game<select id="game-picker" aria-label="Choose game"></select></label>
-    <div class="index-tools"><button id="modes-help" class="utility-button" aria-label="About Daily and Free play" title="About Daily and Free play"><span aria-hidden="true">?</span><span class="nav-label">Daily / Free play</span></button><button id="theme-toggle" class="utility-button" aria-label="Use dark mode" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14a8.5 8.5 0 0 1-10-10 8.5 8.5 0 1 0 10 10Z"/></svg><span class="nav-label">Dark mode</span></button></div>
+    <div class="index-tools"><button id="modes-help" class="utility-button" aria-label="About the games" title="About the games"><span aria-hidden="true">?</span><span class="nav-label">How games work</span></button><button id="theme-toggle" class="utility-button" aria-label="Use dark mode" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14a8.5 8.5 0 0 1-10-10 8.5 8.5 0 1 0 10 10Z"/></svg><span class="nav-label">Dark mode</span></button></div>
   </aside>
   <main id="game" tabindex="-1">
     <iframe id="game-frame" title="Circuit" allow="camera; clipboard-write" src="./library/circuit.html"></iframe>
   </main>
-  <dialog id="modes-dialog" aria-labelledby="modes-title"><div class="dialog-title"><h2 id="modes-title">Daily & Free play</h2><button id="close-modes" class="utility-button" aria-label="Close mode explanation">×</button></div><p><strong>Daily</strong> is the same puzzle for everyone that day. A fresh puzzle arrives at midnight in London. Each game, and each Circuit variant, keeps its own daily progress and results in this browser.</p><p><strong>Free play</strong> gives you extra puzzles at your own pace. It keeps your daily progress separate and does not affect your daily streak.</p><p>Spider has shuffled deals rather than a daily puzzle. Sudoku scans and solves the puzzle you provide.</p></dialog>
+  <dialog id="modes-dialog" aria-labelledby="modes-title"><div class="dialog-title"><h2 id="modes-title">How games work</h2><button id="close-modes" class="utility-button" aria-label="Close game explanation">×</button></div><p><strong>Circuit</strong> has unlimited puzzles in six modes, from 3×3 to 10×10. Every mode and size keeps its own board. Use the question mark inside Circuit for its rules and controls.</p><p>The word and other logic games offer <strong>Daily</strong> puzzles: the same puzzle for everyone, refreshed at midnight in London. <strong>Free play</strong> gives you extra puzzles with separate progress and no effect on your daily streak.</p><p>Spider has shuffled deals. Sudoku scans and solves the puzzle you provide. Progress stays in this browser.</p></dialog>
   <noscript><p>Enable JavaScript to choose a game. <a href="./sudoku/">Open sudoku</a>.</p></noscript>
 </body>
 </html>

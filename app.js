@@ -17,10 +17,12 @@ nav.innerHTML = games.map(g => `<a href="#${g.id}" data-game="${g.id}" title="${
 picker.innerHTML = games.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
 let current = '';
 function show() {
-  const [id, variant] = location.hash.slice(1).split('/');
+  const [id, variant, size, seed] = location.hash.slice(1).split('/');
   const game = games.find(g => g.id === id) || games[0];
-  const selectedVariant = game.id === 'circuit' && ['classic', 'wrap', 'locked', 'split'].includes(variant) ? variant : '';
-  const route = game.id + (selectedVariant ? '/' + selectedVariant : '');
+  const selectedVariant = game.id === 'circuit' && ['classic', 'wrap', 'locked', 'split', 'mesh', 'barriers'].includes(variant) ? variant : '';
+  const selectedSize = selectedVariant && /^(?:[3-9]|10)$/.test(size) ? size : '';
+  const selectedSeed = selectedSize && /^\d{1,10}$/.test(seed) && Number(seed) <= 0xffffffff ? seed : '';
+  const route = game.id + (selectedVariant ? '/' + selectedVariant : '') + (selectedSize ? '/' + selectedSize : '') + (selectedSeed ? '/' + selectedSeed : '');
   for (const link of nav.children) {
     if (link.dataset.game === game.id) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
@@ -30,7 +32,11 @@ function show() {
   document.title = 'games';
   if (route !== current) {
     current = route;
-    frame.src = './' + game.path + (selectedVariant ? '?variant=' + selectedVariant : '');
+    const query = new URLSearchParams();
+    if (selectedVariant) query.set('variant', selectedVariant);
+    if (selectedSize) query.set('size', selectedSize);
+    if (selectedSeed) query.set('seed', selectedSeed);
+    frame.src = './' + game.path + (selectedVariant ? '?' + query : '');
   }
 }
 picker.addEventListener('change', () => { location.hash = picker.value; });
@@ -75,8 +81,10 @@ window.addEventListener('message', event => {
   if (event.data?.type === 'games:index') {
     (matchMedia('(max-width:900px)').matches ? picker : nav.querySelector('[aria-current]')).focus();
   }
-  if (event.data?.type === 'games:variant' && current.startsWith('circuit') && (!location.hash || location.hash.slice(1).split('/')[0] === 'circuit') && ['classic', 'wrap', 'locked', 'split'].includes(event.data.variant)) {
-    current = 'circuit/' + event.data.variant;
+  if (event.data?.type === 'games:variant' && current.startsWith('circuit') && (!location.hash || location.hash.slice(1).split('/')[0] === 'circuit') && ['classic', 'wrap', 'locked', 'split', 'mesh', 'barriers'].includes(event.data.variant)) {
+    const size = Number(event.data.size), seed = event.data.seed;
+    current = 'circuit/' + event.data.variant + (Number.isInteger(size) && size >= 3 && size <= 10 ? '/' + size : '');
+    if (seed !== null && /^\d{1,10}$/.test(seed) && Number(seed) <= 0xffffffff) current += '/' + seed;
     history.replaceState(null, '', '#' + current);
   }
 });

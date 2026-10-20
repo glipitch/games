@@ -1,1 +1,38 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#eef2f6"><meta name="description" content="Circuit: rotate wires to power the board. Four modes: Classic, Wrap, Locked and Split."><title>Circuit — Little Clicks</title><link rel="icon" href="./glimwire-icon.svg"><link rel="stylesheet" href="./circuit.css?v=6"><script type="module" src="./circuit.js?v=6"></script></head><body><div class="circuit-shell"><header><a class="circuit-brand" href="./circuit.html?v=6"><span aria-hidden="true">ϟ</span>Circuit</a><a class="all-games" href="./games.html?v=7">← All 9 games</a><button class="round-button" id="help" aria-label="How to play">?</button></header><main><div class="variant-tabs" id="variants" aria-label="Circuit variant"></div><section class="game" aria-label="Circuit puzzle"><div class="game-top"><div class="mode-tabs"><button id="daily" aria-pressed="true">Daily</button><button id="free" aria-pressed="false">Free play</button></div><div id="sizes" aria-label="Board size" hidden><button data-size="3">3×3</button><button data-size="4">4×4</button><button data-size="5">5×5</button></div><span id="issue"></span></div><div class="game-body"><div class="goal-row"><h1 id="goal">Power every tile.</h1><span class="variant-badge" id="variant-badge">Classic</span></div><div class="metrics"><div><strong id="powered">1/16</strong><span>POWERED</span></div><div class="live-state" id="status" role="status">Live circuit</div><div><strong id="moves">0</strong><span>MOVES</span></div></div><div class="board" id="board" aria-label="Circuit tiles"></div><div class="state-key" id="legend"></div><div class="tools" id="tools"><button id="undo" disabled>↶ Undo</button><button id="reset">⟲ Reset</button><button id="hint">✧ Hint</button></div><div id="result" hidden></div></div></section><div class="daily-foot"><span id="streak">0 day streak</span><span>New daily at midnight · London</span></div><div id="announcement" class="sr-only" role="status" aria-live="polite"></div></main></div><dialog id="modal"><div class="modal-top"><strong>Circuit</strong><button id="close" class="round-button" aria-label="Close dialog">×</button></div><div id="modal-content"></div></dialog><div id="toast" role="status"></div></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <meta name="theme-color" content="#eef2f6">
+ <meta name="description" content="Circuit: six ways to connect the power. Unlimited puzzles from 3×3 to 10×10, with hints, pins and saved progress.">
+ <title>Circuit — Little Clicks</title>
+ <link rel="icon" href="./glimwire-icon.svg"><link rel="stylesheet" href="./circuit.css?v=7">
+ <script type="module" src="./circuit.js?v=7"></script>
+</head>
+<body>
+ <div class="circuit-shell">
+  <header><a class="circuit-brand" href="./circuit.html"><span aria-hidden="true">ϟ</span>Circuit</a><a class="all-games" href="./games.html">← All games</a><button class="round-button" id="help" aria-label="How to play">?</button></header>
+  <main>
+   <div class="variant-tabs" id="variants" role="group" aria-label="Circuit mode"></div>
+   <section class="game" aria-label="Circuit puzzle">
+    <div class="game-top"><div class="size-control"><label for="size">Board size</label><select id="size" aria-label="Board size"></select></div><span id="puzzle-label">Unlimited puzzles</span><button id="new" class="new-button">↻ New puzzle</button></div>
+    <div class="game-body">
+     <div class="goal-row"><h1 id="goal">Power every tile.</h1><span class="variant-badge" id="variant-badge">Classic</span></div>
+     <div class="metrics"><div><strong id="powered">0/25</strong><span>POWERED</span></div><div class="live-state" id="status" role="status">Live circuit</div><div><strong id="moves">0</strong><span>MOVES</span></div></div>
+     <div class="board-area">
+      <div class="board-view"><button id="pin-mode" aria-pressed="false" title="Pin tiles in place (P on a focused tile)">Pin tiles</button><div class="zoom-controls" role="group" aria-label="Board zoom"><button id="zoom-out" aria-label="Zoom out">−</button><button id="fit" aria-label="Fit board to width">Fit</button><button id="zoom-in" aria-label="Zoom in">+</button></div></div>
+      <div class="board-viewport" id="board-viewport" tabindex="0" aria-label="Circuit board. Scroll to explore when enlarged."><div class="board" id="board" role="group" aria-label="Circuit tiles"></div></div>
+      <p id="board-tip">Tap to rotate · Pin tiles you are sure about</p>
+     </div>
+     <div class="state-key" id="legend"></div>
+     <div class="tools" id="tools"><button id="undo" disabled>↶ Undo</button><button id="reset">⟲ Restart</button><button id="hint">✧ Hint</button></div>
+     <p id="hint-message" role="status" hidden></p>
+     <div id="result" hidden></div>
+    </div>
+   </section>
+   <p class="play-foot" id="save-status">Progress saved on this device · Every mode and size keeps its own board</p>
+   <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
+  </main>
+ </div>
+ <dialog id="modal" aria-labelledby="modal-heading"><div class="modal-top"><strong id="modal-heading">Circuit</strong><button id="close" class="round-button" aria-label="Close dialog">×</button></div><div id="modal-content"></div></dialog>
+ <div id="toast" role="status"></div>
+</body></html>

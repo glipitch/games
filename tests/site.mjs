@@ -54,7 +54,7 @@ try {
           && iframe.contentDocument.readyState === 'complete';
       });
       const frame = page.frameLocator('#game-frame');
-      await frame.locator('html.embedded').waitFor();
+      await frame.locator('html.embedded').waitFor().catch(error=>{throw new Error(`${id} failed to embed in ${theme} ${viewport.width}×${viewport.height}: ${errors.join('; ')} ${failed.join('; ')}`,{cause:error});});
       assert.equal(await frame.locator('html').getAttribute('data-theme'), theme);
       await frame.locator(id === 'sudoku' ? '#camera' : id === 'snapword' ? '#play-area button' : id === 'spider' ? '.card' : id === 'circuit' ? '.tile' : '#game-content button').first().waitFor();
       assert.equal(await page.locator('nav [aria-current]').getAttribute('data-game'), id);
@@ -68,9 +68,9 @@ try {
       await page.screenshot({ path: new URL(`${theme}-${viewport.width}x${viewport.height}-${id}.png`, output).pathname.replace(/^\/([A-Za-z]:)/, '$1'), fullPage: true });
       if (id === 'circuit') {
         await frame.locator('#variants button').nth(1).click();
-        await page.waitForFunction(() => location.hash === '#circuit/wrap');
+        await page.waitForFunction(() => location.hash.startsWith('#circuit/wrap/'));
         assert.equal(await frame.locator('#variant-badge').innerText(), 'Wrap');
-        await frame.locator('#board button').first().click();
+        await frame.locator('#board button[aria-disabled="false"]').first().click();
         assert.equal(await frame.locator('#moves').innerText(), '1');
         await frame.locator('#undo').click();
         assert.equal(await frame.locator('#moves').innerText(), '0');
@@ -126,7 +126,7 @@ try {
           await page.screenshot({ path: new URL('390-sudoku-photo.png', output).pathname.replace(/^\/([A-Za-z]:)/, '$1'), fullPage: true });
         }
       }
-      if (!['spider', 'sudoku'].includes(id)) {
+      if (!['spider', 'sudoku', 'circuit'].includes(id)) {
         assert.ok((await frame.locator('#mode-explanation').innerText()).includes('midnight'));
         await frame.locator(id === 'snapword' ? '#practice-mode' : '#free').click();
         await frame.locator('#mode-explanation').filter({hasText:'Your daily progress stays saved'}).waitFor();

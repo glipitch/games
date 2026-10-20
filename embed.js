@@ -32,6 +32,6 @@ if (window.parent !== window) {
   });
   if (location.pathname.endsWith('/circuit.html')) {
     const replace = history.replaceState.bind(history);
-    history.replaceState = (...args) => { replace(...args); send({ type: 'games:variant', variant: new URL(location.href).searchParams.get('variant') || 'classic' }); };
+    history.replaceState = (...args) => { replace(...args); const params = new URL(location.href).searchParams; send({ type: 'games:variant', variant: params.get('variant') || 'classic', size: params.get('size'), seed: params.get('seed') }); };
   }
 }

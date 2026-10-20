@@ -23,6 +23,7 @@ jobs:
       - run: node sudoku/node_modules/playwright/cli.js install --with-deps chromium
       - run: node scripts/serve.mjs > /tmp/games-server.log 2>&1 &
       - run: npm run test:site
+      - run: npm run test:circuit
       - uses: actions/upload-artifact@v4
         if: always()
         with:

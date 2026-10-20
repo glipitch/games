@@ -19,7 +19,7 @@ for (const folder of ['library', 'sudoku']) {
     if (name.endsWith('.html')) {
       let html = await readFile(file, 'utf8');
       html = html.replace('<head>', '<head><script src="../theme.js?v=2"></script><link rel="stylesheet" href="../fonts.css?v=2">');
-      html = html.replace('</head>', '<link rel="stylesheet" href="./embed.css?v=2"><script src="./embed.js?v=2"></script></head>');
+      html = html.replace('</head>', '<link rel="stylesheet" href="./embed.css?v=3"><script src="./embed.js?v=3"></script></head>');
       html = html.replaceAll('All 9 games', 'All games').replaceAll('all nine games', 'all games').replaceAll('9 games ↗', 'games ↗');
       await writeFile(file, html);
     }
@@ -33,7 +33,7 @@ for (const folder of ['library', 'sudoku']) {
 for (const [file, from, to] of [
   ['app.js', '${location.origin}${location.pathname}', '${new URL("../", location.href).href}#snapword'],
   ['arcade.js', '${location.origin}/play.html?game=${game.id}&v=6', '${new URL("../", location.href).href}#${game.id}'],
-  ['circuit.js', '${location.origin}/circuit.html?variant=${variant}&v=6', '${new URL("../", location.href).href}#circuit/${variant}']
+  ['circuit.js', "const url=new URL('./circuit.html',location.href);url.search=new URLSearchParams({variant,size,seed:board.seed});return url.href;", "const url=new URL('../',location.href);url.hash='circuit/'+variant+'/'+size+'/'+board.seed;return url.href;"]
 ]) {
   const path = join(output, 'library', file);
   const source = await readFile(path, 'utf8');

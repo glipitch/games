@@ -5,7 +5,7 @@ const output = join(root, '_site');
 if (output !== join(root, '_site')) throw Error('Unexpected build directory');
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
-for (const name of ['index.html', 'sitemap.xml', 'style.css', 'app.js', 'icon.svg', 'fonts.css', 'theme.js', 'assets']) await cp(join(root, name), join(output, name), { recursive: true });
+for (const name of ['index.html', 'sitemap.xml', 'googlef12cd3571964240e.html', 'style.css', 'app.js', 'icon.svg', 'fonts.css', 'theme.js', 'assets']) await cp(join(root, name), join(output, name), { recursive: true });
 await writeFile(join(output, '.nojekyll'), '');
 await cp(join(root, 'snapword/dist'), join(output, 'library'), { recursive: true });
 await mkdir(join(output, 'sudoku'));

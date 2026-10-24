@@ -4,6 +4,7 @@ import {mkdir} from 'node:fs/promises';
 import {newGame,move,hint,validState} from '../snapword/dist/spider-engine.js';
 import {checkSpiderScroll} from './spider-scroll.mjs';
 import {checkSpiderDrops} from './spider-drops.mjs';
+import {checkSpiderCompletion} from './spider-completion.mjs';
 
 const base=process.env.TEST_URL||'http://127.0.0.1:4173/games/';
 await mkdir(new URL('../test-results/',import.meta.url),{recursive:true});
@@ -127,8 +128,11 @@ try{
  all.forEach(c=>delete c.used);won.won=true;assert.ok(validState(won));
  await loadState(page,won);await frame.locator('#win').waitFor();
  assert.doesNotMatch(await frame.locator('#win').innerText(),/score|moves|points|\d+:\d+/i);
+ assert.deepEqual(await frame.locator('#win').allTextContents(),['Well done.Play again']);
+ assert.equal(await frame.locator('#message').innerText(),'');
  await context.close();
  await checkSpiderScroll(browser,base);
  await checkSpiderDrops(browser,base);
+ await checkSpiderCompletion(browser,base);
  console.log('Spider passed saved-game, readability, touch pan, rotation, drag, stable scroll and calm completion checks in both themes.');
 }finally{await browser.close();}

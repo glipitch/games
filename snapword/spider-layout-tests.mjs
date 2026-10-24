@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CARD_RATIO,fitGeometry,fitZoom,columnGeometry} from './dist/spider-layout.js';
+import {CARD_RATIO,fitGeometry,fitZoom,tightZoom,columnGeometry,tightColumnGeometry} from './dist/spider-layout.js';
 const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-8,`${a} differs from ${b}`);
 
 test('all ten columns fit narrow portrait, landscape and desktop tables',()=>{
@@ -18,6 +18,23 @@ test('all ten columns fit narrow portrait, landscape and desktop tables',()=>{
   }else assert.ok(geometry.up>=geometry.cardWidth*62/146,'The enlarged illustrated corner suit stays exposed');
   if(!geometry.compact)close(geometry.cardWidth/geometry.cardHeight,CARD_RATIO);
  }
+});
+
+test('tight stacks compress only covered spacing and leave short columns alone',()=>{
+ const geometry=fitGeometry(1400,8),short=Array.from({length:3},()=>({up:true})),long=Array.from({length:30},(_,i)=>({up:i>=5}));
+ assert.deepEqual(tightColumnGeometry(short,geometry,600),columnGeometry(short,geometry));
+ const positions=tightColumnGeometry(long,geometry,600);
+ close(positions.height,600);close(positions.height-positions.tops.at(-1),geometry.cardHeight);
+ assert.ok(positions.tops.every((top,i)=>!i||top>positions.tops[i-1]));
+ assert.ok(positions.tops[6]-positions.tops[5]<geometry.up);
+ close(positions.tops[1]-positions.tops[0],1);
+});
+
+test('tight stacks fit very short windows while retaining a visible strip for every card',()=>{
+ const geometry=fitGeometry(1400,8),columns=[Array.from({length:80},()=>({up:true}))],room=150;
+ const zoom=tightZoom(geometry,columns,room),positions=tightColumnGeometry(columns[0],geometry,room/zoom);
+ assert.ok(zoom<1);close(positions.height*zoom,room);
+ assert.ok(positions.tops.every((top,i)=>!i||top>positions.tops[i-1]));
 });
 
 test('fit zoom scales the original geometry uniformly without enlarging it',()=>{

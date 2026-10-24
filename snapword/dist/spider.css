@@ -49,3 +49,5 @@ html.embedded[data-game=spider] header{padding-left:82px}html.embedded[data-game
 
 /* Keep sticky controls within the preserved scroll range after a clearance. */
 .table{min-height:max(0px,calc(var(--scroll-floor,0px) - var(--controls-height,0px) - 32px))}.table.won #win{position:sticky;top:calc(var(--controls-height,0px) + 64px);z-index:21;background:var(--felt);border-radius:6px}
+
+@media(max-width:640px){.game-controls .actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%}.game-controls .view-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%}}

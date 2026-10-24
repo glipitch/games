@@ -19,3 +19,20 @@ export function fitZoom(geometry,columns,availableHeight){
  const height=Math.max(...columns.map(cards=>columnGeometry(cards,geometry).height));
  return Math.min(1,Math.max(1,availableHeight)/height);
 }
+
+// Only the exposed height of covered cards changes; card faces keep their size.
+export function tightZoom(geometry,columns,availableHeight){
+ const covered=Math.max(...columns.map(cards=>Math.max(0,cards.length-1)));
+ return Math.min(1,Math.max(1,availableHeight)/(geometry.cardHeight+covered));
+}
+
+export function tightColumnGeometry(cards,geometry,availableHeight){
+ const natural=columnGeometry(cards,geometry);
+ if(natural.height<=availableHeight)return natural;
+ const covered=cards.slice(0,-1),upCount=covered.filter(card=>card.up).length,downCount=covered.length-upCount;
+ const space=Math.max(covered.length,availableHeight-geometry.cardHeight);
+ let {up,down}=geometry;
+ if(downCount)down=Math.max(1,Math.min(down,(space-upCount*up)/downCount));
+ if(upCount)up=Math.max(1,Math.min(up,(space-downCount*down)/upCount));
+ return columnGeometry(cards,{...geometry,up,down});
+}

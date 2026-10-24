@@ -1,21 +1,32 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CARD_RATIO,fitGeometry,columnGeometry} from './dist/spider-layout.js';
+import {CARD_RATIO,fitGeometry,fitZoom,columnGeometry} from './dist/spider-layout.js';
 const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-8,`${a} differs from ${b}`);
 
 test('all ten columns fit narrow portrait, landscape and desktop tables',()=>{
- for(const available of [276,304,350,680,728,1024,1400,1920])for(const gap of [2,3,5,8]){
-  const geometry=fitGeometry(available,gap);
+ for(const available of [276,304,350,680,728,1024,1400,1920])for(const gap of [2,3,5,8])for(const compact of [false,true]){
+  const geometry=fitGeometry(available,gap,compact);
   assert.ok(geometry.cardWidth>=24,'Narrow cards retain a usable touch width');
   close(geometry.cardWidth*10+geometry.gap*9,available);
-  assert.ok(geometry.up>=24,'Exposed ranks retain a usable touch height');
-  assert.ok(geometry.cardHeight>=60,'Compact cards leave room for rank and suit');
+  assert.equal(geometry.compact,compact,'Screen width never selects a card style');
+  assert.ok(geometry.up>=12,'Regular faces retain their proportions');
   if(geometry.compact){
+   assert.ok(geometry.cardHeight>=60,'Compact cards leave room for rank and suit');
    const rank=Math.max(24,Math.min(geometry.cardWidth*.70,32)),suit=Math.max(22,Math.min(geometry.cardWidth*.66,30));
    assert.ok(geometry.up>=rank+suit+9,'Both rank and suit remain exposed in a stack');
    assert.ok(geometry.cardHeight>=geometry.up,'The compact index fits inside its card');
   }else assert.ok(geometry.up>=geometry.cardWidth*62/146,'The enlarged illustrated corner suit stays exposed');
   if(!geometry.compact)close(geometry.cardWidth/geometry.cardHeight,CARD_RATIO);
+ }
+});
+
+test('fit zoom scales the original geometry uniformly without enlarging it',()=>{
+ for(const compact of [false,true]){
+  const geometry=fitGeometry(1300,8,compact),columns=[Array.from({length:30},()=>({up:true}))];
+  const natural=columnGeometry(columns[0],geometry).height,scale=fitZoom(geometry,columns,500);
+  close(natural*scale,500);assert.ok(scale>0&&scale<1);
+  close((geometry.cardWidth*scale)/(geometry.cardHeight*scale),geometry.cardWidth/geometry.cardHeight);
+  assert.equal(fitZoom(geometry,columns,natural+100),1);
  }
 });
 test('long stacks stay ordered through resize without overlapping rank strips',()=>{

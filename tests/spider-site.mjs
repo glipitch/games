@@ -5,6 +5,7 @@ import {newGame,move,hint,validState} from '../snapword/dist/spider-engine.js';
 import {checkSpiderScroll} from './spider-scroll.mjs';
 import {checkSpiderDrops} from './spider-drops.mjs';
 import {checkSpiderCompletion} from './spider-completion.mjs';
+import {checkSpiderView} from './spider-view.mjs';
 
 const base=process.env.TEST_URL||'http://127.0.0.1:4173/games/';
 await mkdir(new URL('../test-results/',import.meta.url),{recursive:true});
@@ -53,6 +54,7 @@ try{
   tall.columns=[cards.slice(0,32),...Array.from({length:9},(_,i)=>cards.slice(32+i*8,40+i*8))];
   assert.ok(validState(tall));
   await loadState(page,tall);await settle(frame);
+  if(width<500){await frame.locator('#compact').click();await settle(frame);}
   assert.deepEqual((await readSave(frame)).state,tall);
   const geometry=await frame.locator('body').evaluate(()=>{
    const board=document.querySelector('#board'),compact=board.classList.contains('compact');
@@ -113,6 +115,7 @@ try{
  for(const width of [1440,740]){
   await page.setViewportSize({width,height:1000});
   await loadState(page,newGame(42));await settle(frame);
+  if(width===740){await frame.locator('#compact').click();await settle(frame);}
   const state=(await readSave(frame)).state,h=hint(state),source=await frame.locator(`.card[data-column="${h.from}"][data-index="${h.index}"]`).boundingBox(),target=await frame.locator(`.column[data-column="${h.to}"] .card`).last().boundingBox();
   await page.mouse.move(source.x+source.width/2,source.y+10);await page.mouse.down();
   await page.mouse.move(target.x+target.width/2,target.y+10,{steps:10});
@@ -134,5 +137,6 @@ try{
  await checkSpiderScroll(browser,base);
  await checkSpiderDrops(browser,base);
  await checkSpiderCompletion(browser,base);
+ await checkSpiderView(browser,base);
  console.log('Spider passed saved-game, readability, touch pan, rotation, drag, stable scroll and calm completion checks in both themes.');
 }finally{await browser.close();}

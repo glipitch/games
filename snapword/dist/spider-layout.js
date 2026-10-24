@@ -5,12 +5,17 @@ export function columnGeometry(cards,geometry){
  return {tops,height:top+geometry.cardHeight};
 }
 
-// Narrow screens use readable rank strips, with every column kept in view.
-export function fitGeometry(available,gap=4){
+// Appearance is explicitly selected; resizing never changes the card style.
+export function fitGeometry(available,gap=4,compact=false){
  const boardWidth=Math.max(1,available),safeGap=Math.min(gap,boardWidth/100);
- const cardWidth=(boardWidth-safeGap*9)/10,compact=cardWidth<100;
+ const cardWidth=(boardWidth-safeGap*9)/10;
  // Keep both rank and suit visible above the next card, including a two-digit 10.
  const rankSize=Math.max(24,Math.min(cardWidth*.70,32)),suitSize=Math.max(22,Math.min(cardWidth*.66,30));
- const up=compact?Math.ceil(rankSize+suitSize+9):Math.max(32,cardWidth*.44);
+ const up=compact?Math.ceil(rankSize+suitSize+9):Math.max(12,cardWidth*.44);
  return {boardWidth,gap:safeGap,cardWidth,compact,cardHeight:compact?up+8:cardWidth/CARD_RATIO,up,down:Math.max(9,cardWidth*.12)};
+}
+
+export function fitZoom(geometry,columns,availableHeight){
+ const height=Math.max(...columns.map(cards=>columnGeometry(cards,geometry).height));
+ return Math.min(1,Math.max(1,availableHeight)/height);
 }

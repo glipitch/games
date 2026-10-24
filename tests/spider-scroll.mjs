@@ -18,7 +18,7 @@ export async function checkSpiderScroll(browser,base){
    }
    state.stock=[];
    assert.ok(validState(state));
-   await context.addInitScript(state=>{if(!localStorage.getItem('clicks:spider:v1'))localStorage.setItem('clicks:spider:v1',JSON.stringify({state,history:[]}));},state);
+   await context.addInitScript(({state,touch})=>{if(!localStorage.getItem('clicks:spider:v1'))localStorage.setItem('clicks:spider:v1',JSON.stringify({state,history:[]}));if(touch)localStorage.setItem('clicks:spider:appearance:v1',JSON.stringify({compact:true}));},{state,touch});
    const page=await context.newPage();await page.goto(base+'#spider');
    const frame=page.frameLocator('#game-frame');await frame.locator('.card').first().waitFor();
    await frame.locator('body').evaluate(async(_,clearRun)=>{await document.fonts.ready;await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));scrollTo(0,clearRun?document.documentElement.scrollHeight:300);},clearRun);

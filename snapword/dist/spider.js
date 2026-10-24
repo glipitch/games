@@ -1,4 +1,4 @@
-import {fitGeometry,fitZoom,tightZoom,columnGeometry,tightColumnGeometry} from './spider-layout.js?v=22';
+import {fitGeometry,fitZoom,tightZoom,columnGeometry,tightColumnGeometry} from './spider-layout.js?v=23';
 import {cardArt} from './spider-cards.js?v=14';
 import {rankArt} from './spider-ranks.js?v=14';
 import {captureCompletedRuns,showCompletedRuns,cancelCompletedRuns} from './spider-completion.js?v=20';
@@ -22,7 +22,7 @@ function layout(){
  zoom=mode==='fit'?fitZoom(geometry,state.columns,room):mode==='tight'?tightZoom(geometry,state.columns,room):1;
  board.classList.toggle('compact',compact);board.style.width=geometry.boardWidth+'px';board.style.columnGap=geometry.gap+'px';board.style.setProperty('--card-width',geometry.cardWidth+'px');board.style.setProperty('--card-height',geometry.cardHeight+'px');board.style.setProperty('--table-zoom',zoom);board.dataset.zoom=String(zoom);
  let naturalHeight=0;
- board.querySelectorAll('.column').forEach((col,i)=>{const positions=mode==='tight'?tightColumnGeometry(state.columns[i],geometry,room/zoom):columnGeometry(state.columns[i],geometry);naturalHeight=Math.max(naturalHeight,positions.height);col.querySelectorAll('.card').forEach((card,j)=>card.style.setProperty('--top',positions.tops[j]+'px'));col.style.minHeight=positions.height+'px';});
+ board.querySelectorAll('.column').forEach((col,i)=>{const positions=mode==='tight'?tightColumnGeometry(state.columns[i],geometry,room/zoom,zoom):columnGeometry(state.columns[i],geometry);naturalHeight=Math.max(naturalHeight,positions.height);col.querySelectorAll('.card').forEach((card,j)=>card.style.setProperty('--top',positions.tops[j]+'px'));col.style.minHeight=positions.height+'px';});
  const playHeight=state.won?naturalHeight*zoom:Math.max(room,naturalHeight*zoom);scroll.style.height=playHeight+'px';board.style.height=playHeight/zoom+'px';
  const labels=$('.column-labels');labels.style.width=geometry.boardWidth*zoom+'px';labels.style.columnGap=geometry.gap*zoom+'px';
  board.dataset.mode=mode;$('#compact').setAttribute('aria-pressed',String(compact));$('#fit').setAttribute('aria-pressed',String(mode==='fit'));$('#tight').setAttribute('aria-pressed',String(mode==='tight'));$('#actual').setAttribute('aria-pressed',String(mode==='actual'));$('#fit').title=mode==='fit'?`Automatically fitting the table (currently ${Math.round(zoom*100)}%)`:'Keep the whole table fitted as you play';

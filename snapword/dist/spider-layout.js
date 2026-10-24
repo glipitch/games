@@ -21,18 +21,23 @@ export function fitZoom(geometry,columns,availableHeight){
 }
 
 // Only the exposed height of covered cards changes; card faces keep their size.
+const MIN_BACK_STRIP=8;
 export function tightZoom(geometry,columns,availableHeight){
- const covered=Math.max(...columns.map(cards=>Math.max(0,cards.length-1)));
- return Math.min(1,Math.max(1,availableHeight)/(geometry.cardHeight+covered));
+ return Math.min(1,...columns.map(cards=>{
+  const covered=cards.slice(0,-1),down=covered.filter(card=>!card.up).length,up=covered.length-down;
+  // Reserve visible screen pixels for backs before fitting the face-up cards.
+  return Math.max(1,availableHeight-down*MIN_BACK_STRIP)/(geometry.cardHeight+up);
+ }));
 }
 
-export function tightColumnGeometry(cards,geometry,availableHeight){
- const natural=columnGeometry(cards,geometry);
+export function tightColumnGeometry(cards,geometry,availableHeight,zoom=1){
+ const minimumDown=MIN_BACK_STRIP/zoom,visibleBacks={...geometry,down:Math.max(geometry.down,minimumDown)};
+ const natural=columnGeometry(cards,visibleBacks);
  if(natural.height<=availableHeight)return natural;
  const covered=cards.slice(0,-1),upCount=covered.filter(card=>card.up).length,downCount=covered.length-upCount;
- const space=Math.max(covered.length,availableHeight-geometry.cardHeight);
- let {up,down}=geometry;
- if(downCount)down=Math.max(1,Math.min(down,(space-upCount*up)/downCount));
+ const space=Math.max(upCount+downCount*minimumDown,availableHeight-geometry.cardHeight);
+ let {up,down}=visibleBacks;
+ if(downCount)down=Math.max(minimumDown,Math.min(down,(space-upCount*up)/downCount));
  if(upCount)up=Math.max(1,Math.min(up,(space-downCount*down)/upCount));
  return columnGeometry(cards,{...geometry,up,down});
 }

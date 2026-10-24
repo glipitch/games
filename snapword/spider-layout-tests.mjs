@@ -27,7 +27,19 @@ test('tight stacks compress only covered spacing and leave short columns alone',
  close(positions.height,600);close(positions.height-positions.tops.at(-1),geometry.cardHeight);
  assert.ok(positions.tops.every((top,i)=>!i||top>positions.tops[i-1]));
  assert.ok(positions.tops[6]-positions.tops[5]<geometry.up);
- close(positions.tops[1]-positions.tops[0],1);
+ close(positions.tops[1]-positions.tops[0],8);
+});
+
+test('tight stacks retain eight visible pixels of every back even when the table is zoomed',()=>{
+ for(const compact of [false,true])for(const width of [304,1400])for(const room of [150,300,600]){
+  const geometry=fitGeometry(width,3,compact),columns=[Array.from({length:40},(_,i)=>({up:i>=5})),[{up:false},{up:true}]];
+  const zoom=tightZoom(geometry,columns,room);
+  for(const cards of columns){
+   const positions=tightColumnGeometry(cards,geometry,room/zoom,zoom);
+   assert.ok(positions.height*zoom<=room+.001,'The cards still fit');
+   cards.slice(0,-1).forEach((card,i)=>{if(!card.up)assert.ok((positions.tops[i+1]-positions.tops[i])*zoom>=8-.001,'The back remains visibly exposed in screen pixels');});
+  }
+ }
 });
 
 test('tight stacks fit very short windows while retaining a visible strip for every card',()=>{

@@ -80,6 +80,7 @@ try {
         await frame.locator('#undo').click();
       }
       if (id === 'spider') {
+        assert.equal(await frame.locator('#score,#moves,#time,.stats').count(),0,'Spider has no pressure counters');
         const columns = await frame.locator('.column').evaluateAll(columns => columns.map(c => ({left:c.getBoundingClientRect().left,right:c.getBoundingClientRect().right,width:c.getBoundingClientRect().width})));
         const width = (await page.locator('#game-frame').boundingBox()).width;
         assert.equal(columns.length, 10);
@@ -92,9 +93,9 @@ try {
         const target = await frame.locator('.hint-target').getAttribute('data-column');
         await frame.locator('.hint-source').click();
         await frame.locator(`.column[data-column="${target}"] .card`).last().click();
-        assert.equal(await frame.locator('#moves').innerText(), '1', 'Tap selection moves the hinted run');
+        assert.equal(await frame.locator('body').evaluate(()=>JSON.parse(localStorage.getItem('clicks:spider:v1')).state.moves), 1, 'Tap selection moves the hinted run');
         await frame.locator('#undo').click();
-        assert.equal(await frame.locator('#moves').innerText(), '0');
+        assert.equal(await frame.locator('body').evaluate(()=>JSON.parse(localStorage.getItem('clicks:spider:v1')).state.moves), 0);
         if (viewport.width === 390) {
           const before = await frame.locator('.card').evaluateAll(cards => cards.map(card => card.dataset.cardId));
           await page.setViewportSize({width:844,height:390});

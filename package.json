@@ -7,6 +7,7 @@
     "start": "node scripts/serve.mjs",
     "test": "node --test snapword/*tests.mjs sudoku/tests/*.test.js",
     "test:site": "node tests/site.mjs",
-    "test:circuit": "node tests/circuit-site.mjs"
+    "test:circuit": "node tests/circuit-site.mjs",
+    "test:spider": "node tests/spider-site.mjs"
   }
 }

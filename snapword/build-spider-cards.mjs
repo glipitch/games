@@ -15,7 +15,7 @@ function index(rank){
  for(const char of ranks[rank]){const g=glyphs[char];parts+=`<path d="${g.path}" transform="translate(${advance} 0)"/>`;advance+=g.width;}
  // '10' has the same margin as every other rank, with a slightly condensed index.
  const sx=rank===10?.75:1;
- return `<g id="index"><g fill="currentColor" transform="translate(3.5 27) scale(${scale*sx} ${-scale})">${parts}</g>${pip(rank===10?14:11,37.5,13)}</g>`;
+ return `<g id="index"><g fill="currentColor" transform="translate(3.5 27) scale(${scale*sx} ${-scale})">${parts}</g>${pip(rank===10?14:13,40,21)}</g>`;
 }
 function numbered(rank){
  if(rank===1)return pip(73,99,43);

@@ -9,7 +9,12 @@ test('all ten columns fit narrow portrait, landscape and desktop tables',()=>{
   assert.ok(geometry.cardWidth>=24,'Narrow cards retain a usable touch width');
   close(geometry.cardWidth*10+geometry.gap*9,available);
   assert.ok(geometry.up>=24,'Exposed ranks retain a usable touch height');
-  assert.ok(geometry.cardHeight>=66,'Compact cards leave room for rank and suit');
+  assert.ok(geometry.cardHeight>=60,'Compact cards leave room for rank and suit');
+  if(geometry.compact){
+   const rank=Math.max(18,Math.min(geometry.cardWidth*.54,26)),suit=Math.max(22,Math.min(geometry.cardWidth*.66,30));
+   assert.ok(geometry.up>=rank+suit+9,'Both rank and suit remain exposed in a stack');
+   assert.ok(geometry.cardHeight>=geometry.up,'The compact index fits inside its card');
+  }else assert.ok(geometry.up>=geometry.cardWidth*54/146,'The enlarged illustrated corner suit stays exposed');
   if(!geometry.compact)close(geometry.cardWidth/geometry.cardHeight,CARD_RATIO);
  }
 });

@@ -1,11 +1,10 @@
-import {fitGeometry,columnGeometry} from './spider-layout.js?v=12';
-import {cardArt} from './spider-cards.js?v=12';
+import {fitGeometry,columnGeometry} from './spider-layout.js?v=13';
+import {cardArt} from './spider-cards.js?v=13';
 import {newGame,rankLabel,suitSymbol,movable,canMove,canDeal,move,deal,hint,snapshot,validState} from './spider-engine.js?v=7';
-const $=s=>document.querySelector(s),SAVE='clicks:spider:v1';let state,history=[],elapsed=0,selected=null,suggested=null,message='',storageOK=true,motionOrigins=null;
-try{const saved=JSON.parse(localStorage.getItem(SAVE));if(validState(saved?.state)){state=saved.state;elapsed=Number.isFinite(saved.elapsed)?Math.max(0,saved.elapsed):0;history=Array.isArray(saved.history)?saved.history.slice(-120).filter(validState):[];}}catch{}
+const $=s=>document.querySelector(s),SAVE='clicks:spider:v1';let state,history=[],selected=null,suggested=null,message='',storageOK=true,motionOrigins=null;
+try{const saved=JSON.parse(localStorage.getItem(SAVE));if(validState(saved?.state)){state=saved.state;history=Array.isArray(saved.history)?saved.history.slice(-120).filter(validState):[];}}catch{}
 state??=newGame(Math.floor(Math.random()*4294967296));
-const timeText=()=>`${Math.floor(elapsed/60)}:${String(elapsed%60).padStart(2,'0')}`;
-function save(){try{localStorage.setItem(SAVE,JSON.stringify({state,history,elapsed}));}catch{storageOK=false;}}
+function save(){try{localStorage.setItem(SAVE,JSON.stringify({state,history}));}catch{storageOK=false;}}
 function checkpoint(){history.push(snapshot(state));if(history.length>120)history.shift();}
 function commit(){selected=null;suggested=null;message='';save();render();}
 function cardName(c){return `${rankLabel(c.rank)} of ${c.suit==='S'?'spades':'hearts'}`;}
@@ -15,7 +14,13 @@ function layout(){
  board.querySelectorAll('.column').forEach((col,i)=>{const positions=columnGeometry(state.columns[i],geometry);col.querySelectorAll('.card').forEach((card,j)=>card.style.setProperty('--top',positions.tops[j]+'px'));col.style.height=positions.height+'px';});$('#view-note').textContent=geometry.compact?'Tap a card, then its destination. All 10 columns fit.':'Drag or tap a card, then its destination.';
 }
 let layoutFrame=0,observedWidth=0;
-function scheduleLayout(){cancelAnimationFrame(layoutFrame);layoutFrame=requestAnimationFrame(()=>{if(dragging){dragging=null;clearDrag();}$('#board').querySelectorAll('.card').forEach(c=>c.getAnimations().forEach(a=>a.cancel()));layout();});}
+function scheduleLayout(){cancelAnimationFrame(layoutFrame);layoutFrame=requestAnimationFrame(()=>{
+ // Mobile browser chrome and pinch zoom resize the visual viewport during a pan.
+ // Card geometry depends only on table width; leave a settled table alone.
+ const width=$('.table-scroll').getBoundingClientRect().width;
+ if(Math.abs(width-observedWidth)<.1)return;
+ observedWidth=width;if(dragging){dragging=null;clearDrag();}$('#board').querySelectorAll('.card').forEach(c=>c.getAnimations().forEach(a=>a.cancel()));layout();
+});}
 function cardPositions(){return new Map([...$('#board').querySelectorAll('.card')].map(c=>[c.dataset.cardId,{left:c.getBoundingClientRect().left,top:c.getBoundingClientRect().top,down:c.classList.contains('down')}]));}
 function animateCards(old,cleared){
  if(!old.size||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
@@ -24,12 +29,12 @@ function animateCards(old,cleared){
 }
 function render(){
  const old=motionOrigins||cardPositions(),cleared=document.querySelectorAll("#completed .filled").length;motionOrigins=null;
- $('#score').textContent=state.score;$('#moves').textContent=state.moves;$('#time').textContent=timeText();$('#undo').disabled=!history.length;$('#hint').disabled=state.won;
+ $('#undo').disabled=!history.length;$('#hint').disabled=state.won;
  $('#deal').disabled=!state.stock.length||state.won;$('#deal-label').textContent=state.stock.length?`Deal · ${state.stock.length/10} left`:'Stock empty';$('.stock-packs').innerHTML=Array.from({length:state.stock.length/10},()=>'<i></i>').join('');
- $('#progress').textContent=`${state.completed.length} / 8`;$('#completed').innerHTML=Array.from({length:8},(_,i)=>{const c=state.completed[i]?.[0];return `<span class="${c?'filled '+(c.suit==='H'?'red':''):''}" aria-label="${c?'Completed '+(c.suit==='H'?'hearts':'spades'):'Empty sequence slot'}">${c?suitSymbol(c.suit):'·'}</span>`;}).join('');
- $('#board').innerHTML=state.columns.map((col,ci)=>`<div class="column ${suggested?.to===ci?'hint-target':''} ${selected&&canMove(state,selected.column,selected.index,ci)?'can-drop':''}" data-column="${ci}" style="height:calc(var(--card-height) + ${Math.max(0,col.length-1)} * var(--step))" role="group" aria-label="Column ${ci+1}, ${col.length} cards"><button class="empty-column" data-target="${ci}" aria-label="${col.length?'Move selected run to':'Empty column'} ${ci+1}" ${state.won?'disabled':''}>${col.length?'':'+'}</button>${col.map((c,i)=>`<button class="card ${!c.up?'down':c.suit==='H'?'red':''} ${selected?.column===ci&&selected.index===i?'selected':''} ${suggested?.from===ci&&suggested.index===i?'hint-source':''}" style="--index:${i};z-index:${i+1}" data-column="${ci}" data-index="${i}" data-card-id="${c.id}" aria-label="${c.up?cardName(c):'Face-down card'}, column ${ci+1}${c.up?(movable(state,ci,i)?', movable run':', blocked by cards below'):''}" ${c.up?`aria-pressed="${selected?.column===ci&&selected.index===i}"`:''} ${!c.up||state.won?'disabled':''} draggable="false" data-movable="${!state.won&&movable(state,ci,i)}">${c.up?`<span class="card-corner"><span>${rankLabel(c.rank)}</span><span>${suitSymbol(c.suit)}</span></span>${cardArt(c.rank,c.suit)}<span class="compact-suit" aria-hidden="true">${suitSymbol(c.suit)}</span><span class="card-bottom" aria-hidden="true"><span>${rankLabel(c.rank)}</span><span>${suitSymbol(c.suit)}</span></span>`:''}</button>`).join('')}</div>`).join('');
+ $('#progress').textContent=`${state.completed.length} / 8`;$('#progress').setAttribute('aria-label',`${state.completed.length} of 8 runs cleared`);$('#completed').innerHTML=Array.from({length:8},(_,i)=>{const c=state.completed[i]?.[0];return `<span class="${c?'filled '+(c.suit==='H'?'red':''):''}" aria-label="${c?'Completed '+(c.suit==='H'?'hearts':'spades'):'Empty sequence slot'}">${c?suitSymbol(c.suit):'·'}</span>`;}).join('');
+ $('#board').innerHTML=state.columns.map((col,ci)=>`<div class="column ${suggested?.to===ci?'hint-target':''} ${selected&&canMove(state,selected.column,selected.index,ci)?'can-drop':''}" data-column="${ci}" role="group" aria-label="Column ${ci+1}, ${col.length} cards"><button class="empty-column" data-target="${ci}" aria-label="${col.length?'Move selected run to':'Empty column'} ${ci+1}" ${state.won?'disabled':''}>${col.length?'':'+'}</button>${col.map((c,i)=>`<button class="card ${!c.up?'down':c.suit==='H'?'red':''} ${selected?.column===ci&&selected.index===i?'selected':''} ${suggested?.from===ci&&suggested.index===i?'hint-source':''}" style="z-index:${i+1}" data-column="${ci}" data-index="${i}" data-card-id="${c.id}" aria-label="${c.up?cardName(c):'Face-down card'}, column ${ci+1}${c.up?(movable(state,ci,i)?', movable run':', blocked by cards below'):''}" ${c.up?`aria-pressed="${selected?.column===ci&&selected.index===i}"`:''} ${!c.up||state.won?'disabled':''} draggable="false" data-movable="${!state.won&&movable(state,ci,i)}">${c.up?`<span class="card-corner" aria-hidden="true"><span>${rankLabel(c.rank)}</span><span>${suitSymbol(c.suit)}</span></span>${cardArt(c.rank,c.suit)}`:''}</button>`).join('')}</div>`).join('');
  $('#message').textContent=!storageOK?'Browser storage is full. Progress cannot be saved.':message||(state.won?'Eight runs. Table cleared.':selected?`Selected ${rankLabel(state.columns[selected.column][selected.index].rank)}${suitSymbol(state.columns[selected.column][selected.index].suit)} run · choose a column.`:'');
- $('#win').hidden=!state.won;$('.table').classList.toggle('won',state.won);layout();animateCards(old,cleared);if(state.won)$('#win-detail').textContent=`${state.moves} moves · ${timeText()} · ${state.score} points`;
+ $('#win').hidden=!state.won;$('.table').classList.toggle('won',state.won);layout();animateCards(old,cleared);
 }
 function choose(column,index){
  suggested=null;if(state.won)return;if(selected){if(column===selected.column&&index===selected.index){selected=null;message='';render();return;}if(canMove(state,selected.column,selected.index,column)){checkpoint();move(state,selected.column,selected.index,column);commit();return;}}
@@ -39,7 +44,7 @@ $('#board').addEventListener('click',e=>{if(performance.now()<suppressClickUntil
 let dragging=null,suppressClickUntil=0;
 function clearDrag(){document.querySelectorAll('.drop-target,.drag-hidden').forEach(c=>c.classList.remove('drop-target','drag-hidden'));document.querySelector('.drag-ghost')?.remove();}
 function dragGhost(run){
- const source=$('#board').querySelector('.card[data-column="'+run.column+'"][data-index="'+run.index+'"]'),r=source.getBoundingClientRect(),ghost=document.createElement('div');ghost.className='drag-ghost';ghost.setAttribute('aria-hidden','true');ghost.style.width=r.width+'px';ghost.style.setProperty('--card-width',r.width+'px');ghost.style.setProperty('--card-height',r.height+'px');ghost.style.setProperty('--ghost-font',getComputedStyle(source.querySelector('.card-corner')).fontSize);
+ const source=$('#board').querySelector('.card[data-column="'+run.column+'"][data-index="'+run.index+'"]'),r=source.getBoundingClientRect(),ghost=document.createElement('div');ghost.className='drag-ghost'+($('#board').classList.contains('compact')?' compact':'');ghost.setAttribute('aria-hidden','true');ghost.style.width=r.width+'px';ghost.style.setProperty('--card-width',r.width+'px');ghost.style.setProperty('--card-height',r.height+'px');
  source.parentElement.querySelectorAll('.card').forEach(c=>{if(+c.dataset.index<run.index)return;const clone=c.cloneNode(true),rect=c.getBoundingClientRect();clone.classList.remove('selected','hint-source');clone.tabIndex=-1;clone.style.top=(rect.top-r.top)+'px';clone.style.width=r.width+'px';ghost.append(clone);c.classList.add('drag-hidden');});document.body.append(ghost);run.ghost=ghost;run.left=r.left;run.top=r.top;
 }
 $('#board').addEventListener('dragstart',e=>e.preventDefault());
@@ -51,11 +56,10 @@ $('#deal').addEventListener('click',()=>{if(!canDeal(state)){message='Fill every
 $('#undo').addEventListener('click',()=>{if(!history.length)return;state=history.pop();commit();});
 $('#hint').addEventListener('click',()=>{selected=null;suggested=hint(state);if(suggested){const c=state.columns[suggested.from][suggested.index];message=`Move ${rankLabel(c.rank)}${suitSymbol(c.suit)} from column ${suggested.from+1} to ${suggested.to+1}.`;}else message=canDeal(state)?'No useful move. Deal the next row.':state.stock.length?'Fill the empty columns before dealing. Undo may help.':'No useful move found. Try undo or a new game.';render();});
 window.addEventListener('resize',scheduleLayout);window.visualViewport?.addEventListener('resize',scheduleLayout);
-new ResizeObserver(entries=>{const width=entries[0].contentRect.width;if(Math.abs(width-observedWidth)>.1){observedWidth=width;scheduleLayout();}}).observe($('.table-scroll'));
-function start(){state=newGame(Math.floor(Math.random()*4294967296));history=[];elapsed=0;commit();$('#modal').close();}
+new ResizeObserver(scheduleLayout).observe($('.table-scroll'));
+function start(){state=newGame(Math.floor(Math.random()*4294967296));history=[];commit();$('#modal').close();}
 function requestNew(){if(state.moves&&!state.won){$('#dialog-title').textContent='Start a new game?';$('#dialog-body').innerHTML='<p>Your current game will be replaced.</p><div class="dialog-actions"><button id="cancel-new">Keep playing</button><button id="confirm-new">New game</button></div>';$('#cancel-new').onclick=()=>$('#modal').close();$('#confirm-new').onclick=start;$('#modal').showModal();}else start();}
 $('#new').onclick=requestNew;$('#play-again').onclick=start;$('#close').onclick=()=>$('#modal').close();
 $('#help').onclick=()=>{$('#dialog-title').textContent='Two-suit Spider';$('#dialog-body').innerHTML='<ul><li>Build down: put a 7 on any 8.</li><li>Move several cards together only when they descend in the same suit.</li><li>Any card or matching run can fill an empty column.</li><li>A King-to-Ace run in one suit clears automatically. Clear all eight to win.</li><li>Deal adds one card to every column. Fill empty columns first.</li></ul><p>Tap a card or run, then its destination. You can also drag on a computer. Undo reverses moves and deals. Progress saves in this browser.</p><p class="credits">Original card artwork · <a href="./cards/ABOUT.txt" target="_blank">About the deck</a>.</p>';$('#modal').showModal();};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){selected=null;suggested=null;message='';render();}});
-setInterval(()=>{if(document.hidden||state.won||$('#modal').open)return;elapsed++;$('#time').textContent=timeText();if(elapsed%5===0)save();},1000);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save();});window.addEventListener('pagehide',save);save();render();

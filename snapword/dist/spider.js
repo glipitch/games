@@ -1,4 +1,4 @@
-import {fitGeometry,fitDesktopGeometry,columnGeometry} from './spider-layout.js?v=18';
+import {fitGeometry,columnGeometry} from './spider-layout.js?v=14';
 import {cardArt} from './spider-cards.js?v=14';
 import {rankArt} from './spider-ranks.js?v=14';
 import {captureCompletedRuns,showCompletedRuns,cancelCompletedRuns} from './spider-completion.js?v=17';
@@ -10,24 +10,18 @@ function save(){try{localStorage.setItem(SAVE,JSON.stringify({state,history}));}
 function checkpoint(){history.push(snapshot(state));if(history.length>120)history.shift();}
 function commit(options){selected=null;suggested=null;message='';save();render(options);}
 function cardName(c){return `${rankLabel(c.rank)} of ${c.suit==='S'?'spades':'hearts'}`;}
-const desktopFit=()=>matchMedia('(min-width:900px) and (hover:hover) and (pointer:fine)').matches;
 function layout(){
  const board=$('#board');board.style.removeProperty('column-gap');const scroll=$('.table-scroll'),style=getComputedStyle(scroll),available=scroll.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight),gap=parseFloat(getComputedStyle(board).columnGap)||0;
- const tableStyle=getComputedStyle($('.table')),shellStyle=getComputedStyle($('.shell'));
- const bottom=parseFloat(tableStyle.paddingBottom)+parseFloat(tableStyle.borderBottomWidth)+$('.table-foot').getBoundingClientRect().height+parseFloat(shellStyle.paddingBottom)+34;
- const height=document.documentElement.clientHeight-(board.getBoundingClientRect().top+scrollY)-bottom;
- const geometry=desktopFit()?fitDesktopGeometry(available,gap,state.columns,height):fitGeometry(available,gap);
- board.classList.toggle('compact',geometry.compact);board.classList.toggle('dense',!!geometry.dense);board.style.width=geometry.boardWidth+'px';board.style.columnGap=geometry.gap+'px';board.style.setProperty('--card-width',geometry.cardWidth+'px');board.style.setProperty('--card-height',geometry.cardHeight+'px');board.style.setProperty('--dense-index',Math.min(30,geometry.up-2)+'px');
- $('.column-labels').style.width=geometry.boardWidth+'px';observedWidth=scroll.getBoundingClientRect().width;observedHeight=desktopFit()?document.documentElement.clientHeight:0;
+ const geometry=fitGeometry(available,gap);board.classList.toggle('compact',geometry.compact);board.style.width=geometry.boardWidth+'px';board.style.columnGap=geometry.gap+'px';board.style.setProperty('--card-width',geometry.cardWidth+'px');board.style.setProperty('--card-height',geometry.cardHeight+'px');
  board.querySelectorAll('.column').forEach((col,i)=>{const positions=columnGeometry(state.columns[i],geometry);col.querySelectorAll('.card').forEach((card,j)=>card.style.setProperty('--top',positions.tops[j]+'px'));col.style.minHeight=positions.height+'px';});$('#view-note').textContent=geometry.compact?'Tap a card, then its destination. All 10 columns fit.':'Drag or tap a card, then its destination.';
 }
-let layoutFrame=0,observedWidth=0,observedHeight=0;
+let layoutFrame=0,observedWidth=0;
 function scheduleLayout(){cancelAnimationFrame(layoutFrame);layoutFrame=requestAnimationFrame(()=>{
  // Mobile browser chrome and pinch zoom resize the visual viewport during a pan.
- // Only desktop height fitting responds to height changes; mobile pans stay still.
- const width=$('.table-scroll').getBoundingClientRect().width,height=desktopFit()?document.documentElement.clientHeight:0;
- if(Math.abs(width-observedWidth)<.1&&height===observedHeight)return;
- if(dragging){dragging=null;clearDrag();}$('#board').querySelectorAll('.card').forEach(c=>c.getAnimations().forEach(a=>a.cancel()));layout();
+ // Card geometry depends only on table width; leave a settled table alone.
+ const width=$('.table-scroll').getBoundingClientRect().width;
+ if(Math.abs(width-observedWidth)<.1)return;
+ observedWidth=width;if(dragging){dragging=null;clearDrag();}$('#board').querySelectorAll('.card').forEach(c=>c.getAnimations().forEach(a=>a.cancel()));layout();
 });}
 function cardPositions(){return new Map([...$('#board').querySelectorAll('.card')].map(c=>[c.dataset.cardId,{left:c.getBoundingClientRect().left,top:c.getBoundingClientRect().top,down:c.classList.contains('down')}]));}
 function animateCards(old){
@@ -72,7 +66,7 @@ $('#board').addEventListener('click',e=>{if(performance.now()<suppressClickUntil
 let dragging=null,suppressClickUntil=0;
 function clearDrag(){document.querySelectorAll('.drop-target,.drag-hidden').forEach(c=>c.classList.remove('drop-target','drag-hidden'));document.querySelector('.drag-ghost:not(.run-clearance)')?.remove();}
 function dragGhost(run){
- const source=$('#board').querySelector('.card[data-column="'+run.column+'"][data-index="'+run.index+'"]'),r=source.getBoundingClientRect(),ghost=document.createElement('div');ghost.className='drag-ghost'+($('#board').classList.contains('compact')?' compact':'')+($('#board').classList.contains('dense')?' dense':'');ghost.setAttribute('aria-hidden','true');ghost.style.width=r.width+'px';ghost.style.setProperty('--card-width',r.width+'px');ghost.style.setProperty('--card-height',r.height+'px');ghost.style.setProperty('--dense-index',getComputedStyle($('#board')).getPropertyValue('--dense-index'));
+ const source=$('#board').querySelector('.card[data-column="'+run.column+'"][data-index="'+run.index+'"]'),r=source.getBoundingClientRect(),ghost=document.createElement('div');ghost.className='drag-ghost'+($('#board').classList.contains('compact')?' compact':'');ghost.setAttribute('aria-hidden','true');ghost.style.width=r.width+'px';ghost.style.setProperty('--card-width',r.width+'px');ghost.style.setProperty('--card-height',r.height+'px');
  source.parentElement.querySelectorAll('.card').forEach(c=>{if(+c.dataset.index<run.index)return;const clone=c.cloneNode(true),rect=c.getBoundingClientRect();clone.classList.remove('selected','hint-source');clone.tabIndex=-1;clone.style.top=(rect.top-r.top)+'px';clone.style.width=r.width+'px';ghost.append(clone);c.classList.add('drag-hidden');});document.body.append(ghost);run.ghost=ghost;run.left=r.left;run.top=r.top;run.width=r.width;run.height=r.height;
 }
 function dragDestination(run,x,y){

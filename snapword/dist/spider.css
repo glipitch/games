@@ -19,6 +19,3 @@ html.embedded[data-game=spider] header{padding-left:82px}html.embedded[data-game
 @media(max-width:380px){.completed span.filled{width:14px;height:22px}}
 
 .table.won+.table-foot{display:none}
-
-/* Height-fitted desktop cards keep a readable index on covered faces. */
-.board{margin-inline:auto}.column-labels{margin-inline:auto}:is(.board,.drag-ghost).dense .card:not(.down):not(:last-child) .card-art{visibility:hidden}:is(.board,.drag-ghost).dense .card:not(.down):not(:last-child) .card-corner{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:3px;position:absolute;pointer-events:none;top:1px;left:3px;width:auto;height:var(--dense-index)}:is(.board,.drag-ghost).dense .card:not(.down):not(:last-child) .card-corner>span:first-child{display:block;width:calc(var(--dense-index)*.89);height:var(--dense-index)}:is(.board,.drag-ghost).dense .card:not(.down):not(:last-child) .card-corner>span+span{font:var(--dense-index)/1 Georgia,serif}

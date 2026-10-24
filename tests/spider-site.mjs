@@ -5,7 +5,6 @@ import {newGame,move,hint,validState} from '../snapword/dist/spider-engine.js';
 import {checkSpiderScroll} from './spider-scroll.mjs';
 import {checkSpiderDrops} from './spider-drops.mjs';
 import {checkSpiderCompletion} from './spider-completion.mjs';
-import {checkSpiderDesktopFit} from './spider-desktop-fit.mjs';
 
 const base=process.env.TEST_URL||'http://127.0.0.1:4173/games/';
 await mkdir(new URL('../test-results/',import.meta.url),{recursive:true});
@@ -135,6 +134,5 @@ try{
  await checkSpiderScroll(browser,base);
  await checkSpiderDrops(browser,base);
  await checkSpiderCompletion(browser,base);
- await checkSpiderDesktopFit(browser,base);
  console.log('Spider passed saved-game, readability, touch pan, rotation, drag, stable scroll and calm completion checks in both themes.');
 }finally{await browser.close();}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CARD_RATIO,fitGeometry,fitDesktopGeometry,columnGeometry} from './dist/spider-layout.js';
+import {CARD_RATIO,fitGeometry,columnGeometry} from './dist/spider-layout.js';
 const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-8,`${a} differs from ${b}`);
 
 test('all ten columns fit narrow portrait, landscape and desktop tables',()=>{
@@ -17,28 +17,6 @@ test('all ten columns fit narrow portrait, landscape and desktop tables',()=>{
   }else assert.ok(geometry.up>=geometry.cardWidth*62/146,'The enlarged illustrated corner suit stays exposed');
   if(!geometry.compact)close(geometry.cardWidth/geometry.cardHeight,CARD_RATIO);
  }
-});
-
-const stacks=(up,down=0)=>[Array.from({length:up+down},(_,i)=>({up:i>=down})),...Array.from({length:9},()=>[{up:true}])];
-test('desktop fitting leaves already fitting cards at their original size',()=>{
- const columns=stacks(6,5),base=fitGeometry(1366,8),fitted=fitDesktopGeometry(1366,8,columns,900);
- for(const key of ['cardWidth','cardHeight','up','down','boardWidth'])close(fitted[key],base[key]);
- assert.equal(fitted.dense,false);assert.equal(fitted.fitsHeight,true);
-});
-test('desktop fitting first tightens hidden cards, then scales only as much as needed',()=>{
- const base=fitGeometry(1366,8),hidden=fitDesktopGeometry(1366,8,stacks(2,20),400);
- close(hidden.cardWidth,base.cardWidth);assert.ok(hidden.down>=4&&hidden.down<base.down);
- close(columnGeometry(stacks(2,20)[0],hidden).height,400);
- const columns=stacks(12),scaled=fitDesktopGeometry(1366,8,columns,600);
- assert.equal(scaled.dense,false);assert.ok(scaled.cardWidth>=90&&scaled.cardWidth<base.cardWidth);
- close(scaled.cardWidth/scaled.cardHeight,CARD_RATIO);close(columnGeometry(columns[0],scaled).height,600);
-});
-test('long desktop stacks keep readable horizontal indices and a scrollable minimum',()=>{
- const columns=stacks(15),dense=fitDesktopGeometry(1366,8,columns,500);
- assert.equal(dense.dense,true);assert.equal(dense.fitsHeight,true);assert.ok(dense.up>=23);
- close(columnGeometry(columns[0],dense).height,500);
- const extreme=fitDesktopGeometry(1366,8,stacks(32),500);
- assert.equal(extreme.fitsHeight,false);assert.ok(extreme.cardWidth>=90&&extreme.up>=23);
 });
 test('long stacks stay ordered through resize without overlapping rank strips',()=>{
  const cards=Array.from({length:35},(_,i)=>({up:i>=5}));

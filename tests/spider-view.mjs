@@ -70,4 +70,28 @@ export async function checkSpiderView(browser,base){
    assert.deepEqual(errors,[]);
   }finally{await context.close();}
  }
+ await checkSpiderWinnerControls(browser,base);
+}
+
+export async function checkSpiderWinnerControls(browser,base){
+ for(const width of [390,1280]){
+  const context=await browser.newContext({viewport:{width,height:600},reducedMotion:'reduce'});
+  try{
+   const state=newGame(42),cards=[...state.columns.flat(),...state.stock];cards.forEach(card=>card.up=true);
+   const take=(rank,suit)=>cards.splice(cards.findIndex(card=>card.rank===rank&&card.suit===suit),1)[0];
+   state.completed=[];for(const suit of ['H','S'])for(let copy=0;copy<(suit==='H'?4:3);copy++)state.completed.push(Array.from({length:13},(_,i)=>take(13-i,suit)));
+   const run=Array.from({length:12},(_,i)=>take(13-i,'S')),ace=take(1,'S');state.stock=[];state.columns=[run,[ace],...Array.from({length:8},()=>[])];assert.ok(validState(state));
+   await context.addInitScript(state=>localStorage.setItem('clicks:spider:v1',JSON.stringify({state,history:[]})),state);
+   const page=await context.newPage();await page.goto(base+'#spider');const frame=page.frameLocator('#game-frame');await frame.locator('.card').first().waitFor();
+   if(width===390)await frame.locator('#compact').click();
+   const source=await frame.locator(`#board .card[data-card-id="${ace.id}"]`).boundingBox();await page.mouse.click(source.x+source.width/2,source.y+10);
+   await frame.locator('body').evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));
+   const before=await frame.locator('body').evaluate(()=>scrollY);assert.ok(before>0);
+   const target=await frame.locator(`#board .card[data-card-id="${run.at(-1).id}"]`).boundingBox();await page.mouse.click(target.x+target.width/2,target.y+10);
+   assert.equal(await frame.locator('body').evaluate(()=>JSON.parse(localStorage.getItem('clicks:spider:v1')).state.won),true);
+   assert.equal(await frame.locator('body').evaluate(()=>scrollY),before,'Winning does not auto-scroll');
+   const positions=await frame.locator('body').evaluate(()=>['fit','actual','compact','deal','play-again'].map(id=>({id,...document.getElementById(id).getBoundingClientRect().toJSON()})));
+   assert.ok(positions.every(item=>item.top>=0&&item.bottom<=600),'Controls and Play again stay visible after the table clears: '+JSON.stringify(positions));
+  }finally{await context.close();}
+ }
 }

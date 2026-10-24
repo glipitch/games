@@ -46,3 +46,6 @@ html.embedded[data-game=spider] header{padding-left:82px}html.embedded[data-game
  .game-controls .toolbar{padding:3px 0}.game-controls .actions button,.view-actions button{min-height:32px;padding:5px;font-size:11px}.game-controls .actions span[aria-hidden]{display:none}
  .game-controls #help{min-height:28px;width:28px}.table{padding:6px}.table-top{min-height:32px}.deal{min-height:32px;padding:3px 6px}
 }
+
+/* Keep sticky controls within the preserved scroll range after a clearance. */
+.table{min-height:max(0px,calc(var(--scroll-floor,0px) - var(--controls-height,0px) - 32px))}.table.won #win{position:sticky;top:calc(var(--controls-height,0px) + 64px);z-index:21;background:var(--felt);border-radius:6px}

@@ -3,6 +3,7 @@ import {chromium} from '../sudoku/node_modules/playwright/index.mjs';
 import {mkdir} from 'node:fs/promises';
 import {newGame,move,hint,validState} from '../snapword/dist/spider-engine.js';
 import {checkSpiderScroll} from './spider-scroll.mjs';
+import {checkSpiderDrops} from './spider-drops.mjs';
 
 const base=process.env.TEST_URL||'http://127.0.0.1:4173/games/';
 await mkdir(new URL('../test-results/',import.meta.url),{recursive:true});
@@ -128,5 +129,6 @@ try{
  assert.doesNotMatch(await frame.locator('#win').innerText(),/score|moves|points|\d+:\d+/i);
  await context.close();
  await checkSpiderScroll(browser,base);
+ await checkSpiderDrops(browser,base);
  console.log('Spider passed saved-game, readability, touch pan, rotation, drag, stable scroll and calm completion checks in both themes.');
 }finally{await browser.close();}

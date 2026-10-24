@@ -10,6 +10,7 @@ export function fitGeometry(available,gap=4){
  const boardWidth=Math.max(1,available),safeGap=Math.min(gap,boardWidth/100);
  const cardWidth=(boardWidth-safeGap*9)/10,compact=cardWidth<100;
  // Keep both rank and suit visible above the next card, including a two-digit 10.
- const rankSize=Math.max(18,Math.min(cardWidth*.54,26)),suitSize=Math.max(22,Math.min(cardWidth*.66,30));
- return {boardWidth,gap:safeGap,cardWidth,compact,cardHeight:compact?Math.max(60,Math.min(80,cardWidth*1.15)):cardWidth/CARD_RATIO,up:compact?Math.ceil(rankSize+suitSize+9):Math.max(32,cardWidth*.40),down:Math.max(9,cardWidth*.12)};
+ const rankSize=Math.max(24,Math.min(cardWidth*.70,32)),suitSize=Math.max(22,Math.min(cardWidth*.66,30));
+ const up=compact?Math.ceil(rankSize+suitSize+9):Math.max(32,cardWidth*.44);
+ return {boardWidth,gap:safeGap,cardWidth,compact,cardHeight:compact?up+8:cardWidth/CARD_RATIO,up,down:Math.max(9,cardWidth*.12)};
 }

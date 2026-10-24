@@ -57,13 +57,14 @@ try{
     columns:[...document.querySelectorAll('.column')].map(c=>c.getBoundingClientRect().toJSON()),
     indices:[...board.querySelectorAll('.card-corner')].map(index=>{
      const card=index.parentElement,next=card.nextElementSibling,rank=index.firstElementChild.getBoundingClientRect(),suit=index.lastElementChild.getBoundingClientRect();
-     return {rank:rank.toJSON(),suit:suit.toJSON(),card:card.getBoundingClientRect().toJSON(),nextTop:next?.getBoundingClientRect().top};
+     return {rank:rank.toJSON(),ink:index.querySelector('.card-rank path').getBoundingClientRect().toJSON(),suit:suit.toJSON(),card:card.getBoundingClientRect().toJSON(),nextTop:next?.getBoundingClientRect().top};
     })};
   });
   assert.ok(geometry.scrollWidth<=width,'The table never scrolls horizontally');
   assert.ok(geometry.columns.every(c=>c.left>=0&&c.right<=width&&c.width>=24));
-  if(geometry.compact)for(const {rank,suit,card,nextTop} of geometry.indices){
-   assert.ok(rank.height>=18&&suit.height>=22,'Rank and suit are large enough to read');
+  if(geometry.compact)for(const {rank,ink,suit,card,nextTop} of geometry.indices){
+   assert.ok(rank.height>=24&&ink.height>=18&&suit.height>=22,'The actual rank outline and suit remain large enough to read');
+   assert.ok(ink.left>=card.left&&ink.right<=card.right&&ink.top>=rank.top&&ink.bottom<=rank.bottom,'Every outline, including 10 and the Q tail, fits its index');
    assert.ok(rank.left>=card.left&&rank.right<=card.right&&suit.left>=card.left&&suit.right<=card.right,'Both parts fit the narrow card');
    assert.ok(suit.bottom<=Math.min(card.bottom,nextTop??Infinity),'The next card never hides the suit');
   }

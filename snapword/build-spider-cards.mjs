@@ -4,18 +4,14 @@ import fs from 'node:fs/promises';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
 const sharp=require(process.env.SHARP_PATH || 'sharp');
-const glyphs=JSON.parse(await fs.readFile(new URL('./asset-sources/ranks.json',import.meta.url)));
+const rankOutlines=JSON.parse(await fs.readFile(new URL('./asset-sources/rank-outlines.json',import.meta.url)));
 const ranks=['','A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 const ns='xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"';
 const spade='M0-15C-3-10-12-5-12 2C-12 10-5 11-2 6C-2 10-4 13-6 15H6C4 13 2 10 2 6C5 11 12 10 12 2C12-5 3-10 0-15Z';
 const heart='M0 14C-3 10-12 4-12-4C-12-12-4-15 0-7C4-15 12-12 12-4C12 4 3 10 0 14Z';
 const pip=(x,y,size=24,invert=false)=>`<use xlink:href="#pip" transform="translate(${x} ${y}) rotate(${invert?180:0}) scale(${size/24})"/>`;
 function index(rank){
- let advance=0,parts='';const scale=37/2048;
- for(const char of ranks[rank]){const g=glyphs[char];parts+=`<path d="${g.path}" transform="translate(${advance} 0)"/>`;advance+=g.width;}
- // '10' has the same margin as every other rank, with a slightly condensed index.
- const sx=rank===10?.75:1;
- return `<g id="index"><g fill="currentColor" transform="translate(3.5 27) scale(${scale*sx} ${-scale})">${parts}</g>${pip(rank===10?14:13,40,21)}</g>`;
+ return `<g id="index"><rect x="1.5" y="1.5" width="29" height="60" rx="3" fill="#fff"/><svg x="1" y="2" width="30" height="34" viewBox="0 0 32 36"><path fill="currentColor" d="${rankOutlines[ranks[rank]]}"/></svg>${pip(16,47,21)}</g>`;
 }
 function numbered(rank){
  if(rank===1)return pip(73,99,43);

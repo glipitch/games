@@ -3,6 +3,8 @@ games — original Spider card deck, October 2026
 
 The face cards retain the original generated court illustrations, mirrored by code, with vector ranks and pips. The illustrated faces embed their artwork and rank outlines, so no external images or fonts are needed for the deck.
 
+Full and compact cards share bold rank outlines derived from the bundled DM Sans font at weight 800, distributed under the SIL Open Font License. See ../../assets/fonts/dm-sans-OFL.txt. The rank shapes are generated from our bundled font; no reference-site artwork is used.
+
 The current back is an original navy-and-champagne SVG with a fine diamond lattice and central geometric medallion. The green playing table is drawn in CSS. Narrow screens use an accessible compact rank-and-suit presentation; wider screens show the full illustrated faces without stretching them.
 
 Source illustrations and their generation prompts are retained under asset-sources/courts. The face build script emits the 26 self-contained SVG faces. The back is maintained directly as cards/back.svg.
